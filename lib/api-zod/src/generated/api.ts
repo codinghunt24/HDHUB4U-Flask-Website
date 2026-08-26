@@ -22,8 +22,8 @@ export const HealthCheckResponse = zod.object({
  */
 export const listPostsQueryPageDefault = 1;
 
-export const listPostsQueryLimitDefault = 12;
-export const listPostsQueryLimitMax = 48;
+export const listPostsQueryLimitDefault = 50;
+export const listPostsQueryLimitMax = 50;
 
 
 

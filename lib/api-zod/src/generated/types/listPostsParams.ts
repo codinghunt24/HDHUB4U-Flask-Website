@@ -15,7 +15,7 @@ search?: string;
 page?: number;
 /**
  * @minimum 1
- * @maximum 48
+ * @maximum 50
  */
 limit?: number;
 };

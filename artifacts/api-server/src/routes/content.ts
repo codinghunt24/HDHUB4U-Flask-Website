@@ -154,7 +154,7 @@ router.get("/posts", async (req, res): Promise<void> => {
     return;
   }
   const page = Math.max(1, Number(parsed.data.page ?? 1));
-  const limit = Math.min(48, Math.max(1, Number(parsed.data.limit ?? 12)));
+  const limit = Math.min(50, Math.max(1, Number(parsed.data.limit ?? 50)));
   const filters = [eq(postsTable.published, true)];
   if (parsed.data.category) {
     filters.push(eq(categoriesTable.slug, parsed.data.category));

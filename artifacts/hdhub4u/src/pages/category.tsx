@@ -1,16 +1,24 @@
 import { useListPosts, useListCategories } from "@workspace/api-client-react";
-import { useParams } from "wouter";
+import { useLocation, useParams, useSearch } from "wouter";
 import { PublicLayout } from "@/components/layout/public-layout";
 import { PostGrid } from "@/components/post-grid";
-import { Button } from "@/components/ui/button";
+import { PostPagination } from "@/components/post-pagination";
 import { Tags } from "lucide-react";
 
 export default function CategoryPage() {
   const { slug } = useParams<{ slug: string }>();
+  const searchString = useSearch();
+  const searchParams = new URLSearchParams(searchString);
+  const page = Math.max(1, Number(searchParams.get("page") || 1));
+  const [, setLocation] = useLocation();
   const { data: categories } = useListCategories();
-  const { data, isLoading } = useListPosts({ category: slug, limit: 12 });
+  const { data, isLoading } = useListPosts({ category: slug, page, limit: 50 });
 
   const categoryName = categories?.find(c => c.slug === slug)?.name || slug;
+  const changePage = (nextPage: number) => {
+    setLocation(nextPage > 1 ? `/category/${slug}?page=${nextPage}` : `/category/${slug}`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   return (
     <PublicLayout>
@@ -30,12 +38,12 @@ export default function CategoryPage() {
         emptyMessage={`No posts found in ${categoryName}.`}
       />
 
-      {data && data.totalPages > 1 && (
-        <div className="mt-12 flex justify-center">
-          <Button variant="outline" size="lg" className="font-medium rounded-full px-8">
-            Load More
-          </Button>
-        </div>
+      {data && (
+        <PostPagination
+          page={data.page}
+          totalPages={data.totalPages}
+          onPageChange={changePage}
+        />
       )}
     </PublicLayout>
   );
