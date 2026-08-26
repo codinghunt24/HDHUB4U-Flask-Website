@@ -51,6 +51,8 @@ const cleanText = (value: string) =>
   value
     .replace(/<[^>]+>/g, " ")
     .replace(/&amp;/g, "&")
+    .replace(/&#038;/g, "&")
+    .replace(/&nbsp;|&#160;/g, " ")
     .replace(/&#8211;|&ndash;/g, "–")
     .replace(/&#8217;|&rsquo;/g, "’")
     .replace(/&quot;/g, '"')
@@ -488,28 +490,52 @@ router.post("/admin/import", async (req, res): Promise<void> => {
   }
 
   const articleBlocks = html.match(/<article\b[\s\S]*?<\/article>/gi) ?? [];
-  const blocks =
+  const thumbBlocks =
+    html.match(
+      /<li\b[^>]*class=["'][^"']*\bthumb\b[^"']*["'][\s\S]*?<\/li>/gi,
+    ) ?? [];
+  const postDivBlocks =
+    html.match(
+      /<div\b[^>]*class=["'][^"']*\bpost\b[^"']*["'][\s\S]*?<\/div>/gi,
+    ) ?? [];
+  const blocks = (
     articleBlocks.length > 0
-      ? articleBlocks.slice(0, 24)
-      : (html.match(/<div\b[^>]*class=["'][^"']*post[^"']*["'][\s\S]*?<\/div>/gi) ??
-        []).slice(0, 24);
+      ? articleBlocks
+      : thumbBlocks.length > 0
+        ? thumbBlocks
+        : postDivBlocks
+  ).slice(0, 24);
   const candidates = blocks
     .map((block) => {
-      const linkMatch = block.match(
-        /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/i,
-      );
+      const linkMatches = [
+        ...block.matchAll(
+          /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
+        ),
+      ];
       const headingMatch = block.match(
         /<h[1-4]\b[^>]*>([\s\S]*?)<\/h[1-4]>/i,
       );
-      const imageMatch = block.match(
-        /<img\b[^>]*(?:src|data-src)=["']([^"']+)["'][^>]*>/i,
+      const paragraphMatch = block.match(
+        /<p\b[^>]*>([\s\S]*?)<\/p>/i,
       );
-      const title = cleanText(headingMatch?.[1] ?? linkMatch?.[2] ?? "");
-      if (!linkMatch?.[1] || title.length < 4) return null;
+      const imageMatch = block.match(
+        /<img\b[^>]*(?:src|data-src|data-lazy-src)=["']([^"']+)["'][^>]*>/i,
+      );
+      const titledLink = linkMatches.find((match) =>
+        /<(?:h[1-4]|p)\b/i.test(match[2]),
+      );
+      const link = titledLink ?? linkMatches[0];
+      const title = cleanText(
+        headingMatch?.[1] ??
+          paragraphMatch?.[1] ??
+          titledLink?.[2] ??
+          "",
+      );
+      if (!link?.[1] || title.length < 4) return null;
       try {
         return {
           title: title.slice(0, 220),
-          url: new URL(linkMatch[1], source).toString(),
+          url: new URL(link[1], source).toString(),
           thumbnailUrl: imageMatch?.[1]
             ? new URL(imageMatch[1], source).toString()
             : "/editorial-streaming.jpg",
