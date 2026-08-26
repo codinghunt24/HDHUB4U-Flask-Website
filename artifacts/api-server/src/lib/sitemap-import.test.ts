@@ -7,6 +7,7 @@ import {
 import {
   getNextSitemapOffset,
   getSitemapId,
+  getUniqueSitemapEntries,
   getUniqueSitemapUrls,
   isUnsafeIpAddress,
   isValidSitemapId,
@@ -86,6 +87,70 @@ test("deduplicates repeated sitemap locations after URL resolution", () => {
     "https://public.example/posts/one",
     "https://public.example/posts/two",
   ]);
+});
+
+test("preserves each sitemap location with its valid lastmod timestamp", () => {
+  const entries = getUniqueSitemapEntries(
+    [
+      "<urlset>",
+      "<url><loc>/posts/new</loc><lastmod>2026-08-26T18:58:56+00:00</lastmod></url>",
+      "<url><loc>/posts/old</loc><lastmod>2026-08-25</lastmod></url>",
+      "<url><loc>/posts/invalid</loc><lastmod>not-a-date</lastmod></url>",
+      "</urlset>",
+    ].join(""),
+    new URL("https://public.example/sitemap.xml"),
+  );
+
+  assert.equal(entries.length, 3);
+  assert.equal(entries[0].url, "https://public.example/posts/new");
+  assert.equal(
+    entries[0].lastmod?.toISOString(),
+    "2026-08-26T18:58:56.000Z",
+  );
+  assert.equal(entries[1].lastmod?.toISOString(), "2026-08-25T00:00:00.000Z");
+  assert.equal(entries[2].lastmod, null);
+});
+
+test("uses sitemap lastmod for persistence and falls back for missing dates", async () => {
+  const publishedDates: Date[] = [];
+  const insert = async (
+    candidate: { publishedAt?: Date | null },
+    publishedAt: Date,
+  ) => {
+    publishedDates.push(publishedAt);
+    if (candidate.publishedAt) {
+      assert.equal(
+        candidate.publishedAt.toISOString(),
+        publishedAt.toISOString(),
+      );
+    }
+    return true;
+  };
+  const sourceDate = new Date("2026-08-26T18:58:56.000Z");
+
+  await persistSitemapCandidates(
+    [
+      {
+        url: "https://public.example/posts/new",
+        title: "New",
+        thumbnailUrl: "https://public.example/images/new.jpg",
+        publishedAt: sourceDate,
+      },
+      {
+        url: "https://public.example/posts/without-date",
+        title: "Without Date",
+        thumbnailUrl: "https://public.example/images/without-date.jpg",
+        publishedAt: null,
+      },
+    ],
+    { offset: 0, importTimestamp: sourceDate.getTime(), insert },
+  );
+
+  assert.equal(publishedDates[0].toISOString(), sourceDate.toISOString());
+  assert.equal(
+    publishedDates[1].toISOString(),
+    "2026-08-26T18:58:55.000Z",
+  );
 });
 
 test("concurrent batches count one insert for each source URL", async () => {

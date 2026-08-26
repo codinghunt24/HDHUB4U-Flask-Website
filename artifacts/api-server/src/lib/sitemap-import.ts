@@ -160,27 +160,78 @@ export const extractXmlLocations = (
   xml: string,
   clean = (value: string) => value.trim(),
 ) =>
-  [...xml.matchAll(/<loc\b[^>]*>([\s\S]*?)<\/loc>/gi)]
+  [...xml.matchAll(/<(?:[\w.-]+:)?loc\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?loc>/gi)]
     .map((match) => clean(match[1]))
     .filter(Boolean);
+
+const parseSitemapDate = (
+  value: string | undefined,
+  clean: (value: string) => string,
+) => {
+  if (!value) return null;
+  const date = new Date(clean(value));
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+export type SitemapUrlEntry = {
+  url: string;
+  lastmod: Date | null;
+};
+
+export const getUniqueSitemapEntries = (
+  xml: string,
+  baseUrl: URL,
+  clean: (value: string) => string = (value) => value.trim(),
+) => {
+  const urlBlocks = [
+    ...xml.matchAll(
+      /<(?:[\w.-]+:)?url\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?url>/gi,
+    ),
+  ].map((match) => match[1]);
+  const entries = new Map<string, SitemapUrlEntry>();
+
+  for (const block of urlBlocks) {
+    const location = block.match(
+      /<(?:[\w.-]+:)?loc\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?loc>/i,
+    )?.[1];
+    if (!location) continue;
+    try {
+      const url = new URL(clean(location), baseUrl).toString();
+      if (!entries.has(url)) {
+        entries.set(url, {
+          url,
+          lastmod: parseSitemapDate(
+            block.match(
+              /<(?:[\w.-]+:)?lastmod\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?lastmod>/i,
+            )?.[1],
+            clean,
+          ),
+        });
+      }
+    } catch {
+      // Ignore malformed sitemap locations and continue with valid entries.
+    }
+  }
+
+  if (urlBlocks.length === 0) {
+    for (const location of extractXmlLocations(xml, clean)) {
+      try {
+        const url = new URL(location, baseUrl).toString();
+        if (!entries.has(url)) entries.set(url, { url, lastmod: null });
+      } catch {
+        // Ignore malformed sitemap locations and continue with valid entries.
+      }
+    }
+  }
+
+  return [...entries.values()];
+};
 
 export const getUniqueSitemapUrls = (
   xml: string,
   baseUrl: URL,
   clean?: (value: string) => string,
-) => [
-  ...new Set(
-    extractXmlLocations(xml, clean)
-      .map((location) => {
-        try {
-          return new URL(location, baseUrl).toString();
-        } catch {
-          return null;
-        }
-      })
-      .filter((url): url is string => Boolean(url)),
-  ),
-];
+) => getUniqueSitemapEntries(xml, baseUrl, clean).map((entry) => entry.url);
 
 export const getNextSitemapOffset = (
   offset: number,
@@ -192,6 +243,7 @@ export type SitemapCandidate = {
   url: string;
   title: string;
   thumbnailUrl: string;
+  publishedAt?: Date | null;
 };
 
 export const persistSitemapCandidates = async (
@@ -210,9 +262,9 @@ export const persistSitemapCandidates = async (
   let skipped = 0;
   const importTimestamp = options.importTimestamp ?? Date.now();
   for (const [candidateIndex, candidate] of candidates.entries()) {
-    const sourcePublishedAt = new Date(
-      importTimestamp - (options.offset + candidateIndex) * 1000,
-    );
+    const sourcePublishedAt =
+      candidate.publishedAt ??
+      new Date(importTimestamp - (options.offset + candidateIndex) * 1000);
     if (await options.insert(candidate, sourcePublishedAt, candidateIndex)) {
       imported += 1;
     } else skipped += 1;

@@ -45,7 +45,7 @@ import {
   extractXmlLocations,
   getNextSitemapOffset,
   getSitemapId,
-  getUniqueSitemapUrls,
+  getUniqueSitemapEntries,
   isValidSitemapId,
   parseExternalUrl,
   persistSitemapCandidates,
@@ -749,31 +749,46 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
 
   try {
     const sitemapXml = await fetchSourceText(sitemapUrl);
-    const postUrls = getUniqueSitemapUrls(sitemapXml, sitemapUrl, cleanText);
-    const batchUrls = postUrls.slice(offset, offset + SITEMAP_BATCH_SIZE);
+    const sitemapEntries = getUniqueSitemapEntries(
+      sitemapXml,
+      sitemapUrl,
+      cleanText,
+    );
+    const batchEntries = sitemapEntries.slice(
+      offset,
+      offset + SITEMAP_BATCH_SIZE,
+    );
     const candidates: Array<{
       url: string;
       title: string;
       thumbnailUrl: string;
+      publishedAt: Date | null;
     }> = [];
     let failed = 0;
 
     for (
       let index = 0;
-      index < batchUrls.length;
+      index < batchEntries.length;
       index += PAGE_FETCH_CONCURRENCY
     ) {
-      const batch = batchUrls.slice(index, index + PAGE_FETCH_CONCURRENCY);
+      const batch = batchEntries.slice(
+        index,
+        index + PAGE_FETCH_CONCURRENCY,
+      );
       const results = await Promise.all(
-        batch.map(async (postUrl) => {
+        batch.map(async (entry) => {
           try {
-            const parsedPostUrl = parseExternalUrl(postUrl);
+            const parsedPostUrl = parseExternalUrl(entry.url);
             return {
-              url: postUrl,
+              url: entry.url,
+              publishedAt: entry.lastmod,
               ...(await parsePostPage(parsedPostUrl)),
             };
           } catch (error) {
-            req.log.warn({ err: error, postUrl }, "Sitemap post fetch failed");
+            req.log.warn(
+              { err: error, postUrl: entry.url },
+              "Sitemap post fetch failed",
+            );
             return null;
           }
         }),
@@ -811,7 +826,14 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
           })
           .onConflictDoNothing({ target: postsTable.sourceUrl })
           .returning({ id: postsTable.id });
-        return Boolean(created);
+        if (created) return true;
+        if (candidate.publishedAt) {
+          await db
+            .update(postsTable)
+            .set({ publishedAt: sourcePublishedAt })
+            .where(eq(postsTable.sourceUrl, candidate.url));
+        }
+        return false;
       },
     });
 
@@ -819,14 +841,18 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
       .insert(importRunsTable)
       .values({ sourceUrl: sitemapUrl.toString(), imported, skipped });
 
-    const processed = batchUrls.length;
-    const nextOffset = getNextSitemapOffset(offset, processed, postUrls.length);
+    const processed = batchEntries.length;
+    const nextOffset = getNextSitemapOffset(
+      offset,
+      processed,
+      sitemapEntries.length,
+    );
     res.json(
       ScrapeSitemapResponse.parse({
         sitemapUrl: sitemapUrl.toString(),
         offset,
         processed,
-        total: postUrls.length,
+        total: sitemapEntries.length,
         imported,
         skipped,
         failed,
