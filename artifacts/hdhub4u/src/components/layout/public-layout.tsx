@@ -98,17 +98,17 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t py-12 mt-12">
+      <footer className="bg-[#141414] border-t border-white/10 py-12 mt-12">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-2 opacity-80">
               <Film className="w-5 h-5 text-primary" />
-              <span className="font-display font-bold text-lg text-gray-900">
+              <span className="font-display font-bold text-lg text-white">
                 {settings?.siteName || "HDHUB4U"}
               </span>
             </div>
             
-            <div className="flex items-center gap-6 text-sm text-muted-foreground font-medium">
+            <div className="flex items-center gap-6 text-sm text-gray-300 font-medium">
               <Link href="/about" className="hover:text-primary transition-colors">About</Link>
               <Link href="/contact" className="hover:text-primary transition-colors">Contact</Link>
               <Link href="/privacy-policy" className="hover:text-primary transition-colors">Privacy Policy</Link>
