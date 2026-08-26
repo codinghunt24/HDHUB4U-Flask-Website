@@ -504,7 +504,7 @@ router.post("/admin/import", async (req, res): Promise<void> => {
       : thumbBlocks.length > 0
         ? thumbBlocks
         : postDivBlocks
-  ).slice(0, 24);
+  ).slice(0, 80);
   const candidates = blocks
     .map((block) => {
       const linkMatches = [
