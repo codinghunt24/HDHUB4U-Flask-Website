@@ -47,17 +47,17 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Categories Bar */}
-        <div className="border-t bg-white">
+        <div className="border-t border-black bg-black">
           <div className="container mx-auto px-4">
             <div className="flex items-center gap-1 overflow-x-auto py-2 no-scrollbar">
               <Link href="/">
-                <Button variant="ghost" size="sm" className="whitespace-nowrap rounded-full text-black hover:text-black">
+                <Button variant="ghost" size="sm" className="whitespace-nowrap rounded-full text-white hover:bg-white/10 hover:text-white">
                   All
                 </Button>
               </Link>
               {categories?.map((cat) => (
                 <Link key={cat.id} href={`/category/${cat.slug}`}>
-                  <Button variant="ghost" size="sm" className="whitespace-nowrap rounded-full text-black hover:text-black">
+                  <Button variant="ghost" size="sm" className="whitespace-nowrap rounded-full text-white hover:bg-white/10 hover:text-white">
                     {cat.name}
                   </Button>
                 </Link>
