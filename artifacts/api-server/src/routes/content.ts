@@ -55,6 +55,10 @@ import {
   getImportedTitleUpdate,
   normalizeScrapedTitle,
 } from "../lib/seo-title";
+import {
+  buildImportedExcerpt,
+  cleanImportedExcerpt,
+} from "../lib/imported-content";
 
 const router: IRouter = Router();
 const SESSION_COOKIE = "hdhub4u_admin";
@@ -363,7 +367,7 @@ const postShape = (row: {
   title: row.title,
   slug: row.slug,
   thumbnailUrl: row.thumbnailUrl,
-  excerpt: row.excerpt,
+  excerpt: cleanImportedExcerpt(row.excerpt, row.title),
   sourceUrl: row.sourceUrl,
   category: categoryShape(
     {
@@ -829,7 +833,7 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
             titleSource: "auto",
             slug: `${slugify(candidate.title)}-${Date.now().toString(36)}-${offset + candidateIndex}`,
             thumbnailUrl: candidate.thumbnailUrl,
-            excerpt: `Imported listing from ${sitemapUrl.hostname}. Review and edit before republishing.`,
+            excerpt: buildImportedExcerpt(candidate.title),
             sourceUrl: candidate.url,
             sourceDomain: sitemapUrl.hostname,
             categoryId: defaultCategory.id,
@@ -1029,7 +1033,7 @@ router.post("/admin/import", async (req, res): Promise<void> => {
         titleSource: "auto",
         slug: uniqueSlug,
         thumbnailUrl: candidate.thumbnailUrl,
-        excerpt: `Imported listing from ${hostname}. Review and edit before republishing.`,
+        excerpt: buildImportedExcerpt(candidate.title),
         sourceUrl: candidate.url,
         sourceDomain: hostname,
         categoryId: defaultCategory.id,
