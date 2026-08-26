@@ -20,10 +20,10 @@ export default function Home() {
         </div>
       ) : (
         <div className="mb-12 text-center py-16 bg-gradient-to-br from-primary/10 to-primary/5 rounded-3xl border border-primary/10">
-          <h1 className="text-4xl md:text-5xl font-display font-extrabold text-gray-900 mb-4 tracking-tight">
+          <h1 className="text-4xl md:text-5xl font-display font-extrabold text-white mb-4 tracking-tight">
             Latest <span className="text-primary">Entertainment</span>
           </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto px-4">
+          <p className="text-lg text-gray-200 max-w-2xl mx-auto px-4">
             Browse the newest editorial catalog of trending movies, shows, and entertainment updates.
           </p>
         </div>

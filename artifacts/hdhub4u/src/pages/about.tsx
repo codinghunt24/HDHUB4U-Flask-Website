@@ -3,7 +3,7 @@ import { PublicLayout } from "@/components/layout/public-layout";
 export default function AboutPage() {
   return (
     <PublicLayout>
-      <div className="max-w-3xl mx-auto py-12 prose prose-lg prose-headings:font-display prose-headings:font-bold prose-primary">
+      <div className="max-w-3xl mx-auto py-12 prose prose-lg prose-invert prose-headings:font-display prose-headings:font-bold prose-primary">
         <h1>About Us</h1>
         <p>
           Welcome to our editorial catalog. We are dedicated to providing the latest, most accurate updates and listings for entertainment content.

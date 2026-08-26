@@ -19,8 +19,8 @@ export default function CategoryPage() {
           <Tags className="w-6 h-6" />
         </div>
         <div>
-          <h1 className="text-3xl font-display font-bold capitalize">{categoryName}</h1>
-          <p className="text-muted-foreground">Browsing all posts in this category</p>
+          <h1 className="text-3xl font-display font-bold text-white capitalize">{categoryName}</h1>
+          <p className="text-gray-300">Browsing all posts in this category</p>
         </div>
       </div>
 

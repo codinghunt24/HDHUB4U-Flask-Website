@@ -33,7 +33,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Header */}
-      <header className="bg-black border-b border-white/10 sticky top-0 z-50 shadow-sm">
+      <header className="bg-[#141414] border-b border-white/10 sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center gap-3">
           <Link href="/" className="flex items-center gap-2 flex-shrink-0">
@@ -91,8 +91,10 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 py-8">
-        {children}
+      <main className="flex-1 w-full bg-black">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          {children}
+        </div>
       </main>
 
       {/* Footer */}
