@@ -19,7 +19,7 @@ export function PostGrid({ posts, isLoading, title, emptyMessage = "No posts fou
         {title && <h2 className="text-2xl font-bold text-white" style={{ fontFamily: '"Open Sans", sans-serif' }}>{title}</h2>}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {Array.from({ length: 8 }).map((_, i) => (
-            <Card key={i} className="overflow-hidden border-0 shadow-sm bg-white">
+              <Card key={i} className="overflow-hidden border-0 shadow-sm bg-black">
               <Skeleton className="w-full aspect-[2/3]" />
               <CardContent className="p-4 space-y-3">
                 <Skeleton className="h-4 w-20" />
@@ -51,7 +51,7 @@ export function PostGrid({ posts, isLoading, title, emptyMessage = "No posts fou
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {posts.map((post) => (
           <Link key={post.id} href={`/post/${post.slug}`} className="group block h-full">
-            <Card className="h-full overflow-hidden border-0 shadow-sm bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5 flex flex-col group">
+            <Card className="h-full overflow-hidden border-0 shadow-sm bg-black transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5 flex flex-col group">
               <div className="relative aspect-[2/3] overflow-hidden bg-gray-100">
                 {post.thumbnailUrl ? (
                   <img 
@@ -73,10 +73,10 @@ export function PostGrid({ posts, isLoading, title, emptyMessage = "No posts fou
               </div>
               
               <CardContent className="p-4 flex flex-col flex-1">
-                <h3 className="font-display font-bold text-lg leading-tight text-gray-900 group-hover:text-primary transition-colors line-clamp-2 mb-2">
+                <h3 className="font-display font-bold text-lg leading-tight text-white group-hover:text-primary transition-colors line-clamp-2 mb-2">
                   {post.title}
                 </h3>
-                <p className="text-sm text-muted-foreground line-clamp-2 mb-4 flex-1">
+                <p className="text-sm text-gray-300 line-clamp-2 mb-4 flex-1">
                   {post.excerpt}
                 </p>
                 <div className="flex items-center text-xs text-gray-400 font-medium mt-auto">
