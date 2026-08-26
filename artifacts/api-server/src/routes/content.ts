@@ -554,12 +554,22 @@ router.post("/admin/import", async (req, res): Promise<void> => {
   let imported = 0;
   let skipped = 0;
   const importedRows = [];
-  for (const candidate of candidates) {
+  const importTimestamp = Date.now();
+  for (const [candidateIndex, candidate] of candidates.entries()) {
+    // The source listing is newest-first. Preserve that order in our catalog
+    // even when all items are imported during the same request.
+    const sourcePublishedAt = new Date(
+      importTimestamp - candidateIndex * 1000,
+    );
     const [existing] = await db
       .select({ id: postsTable.id })
       .from(postsTable)
       .where(eq(postsTable.sourceUrl, candidate.url));
     if (existing) {
+      await db
+        .update(postsTable)
+        .set({ publishedAt: sourcePublishedAt })
+        .where(eq(postsTable.id, existing.id));
       skipped += 1;
       continue;
     }
@@ -575,6 +585,7 @@ router.post("/admin/import", async (req, res): Promise<void> => {
         sourceDomain: hostname,
         categoryId: defaultCategory.id,
         published: true,
+        publishedAt: sourcePublishedAt,
       })
       .returning();
     if (created) {
