@@ -33,18 +33,34 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b sticky top-0 z-50 shadow-sm">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
+      <header className="bg-black border-b border-white/10 sticky top-0 z-50 shadow-sm">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center gap-3">
           <Link href="/" className="flex items-center gap-2 flex-shrink-0">
             <div className="w-10 h-10 bg-primary text-primary-foreground rounded-lg flex items-center justify-center rotate-3 shadow-sm border border-primary-border">
               <Film className="w-6 h-6 -rotate-3" />
             </div>
-            <span className="font-display font-bold text-2xl tracking-tight text-gray-900 hidden sm:block">
+            <span className="font-display font-bold text-2xl tracking-tight text-white hidden sm:block">
               {settings?.siteName || "HDHUB4U"}
             </span>
           </Link>
 
-          <form onSubmit={handleSearch} className="flex-1 max-w-lg relative group">
+          <nav aria-label="Main navigation" className="hidden md:flex items-center gap-1 overflow-x-auto no-scrollbar">
+            <Link href="/">
+              <Button variant="ghost" size="sm" className="whitespace-nowrap rounded-full text-white hover:bg-white/10 hover:text-white">
+                All
+              </Button>
+            </Link>
+            {menuCategories.map((cat) => (
+              <Link key={cat.id} href={`/category/${cat.slug}`}>
+                <Button variant="ghost" size="sm" className="whitespace-nowrap rounded-full text-white hover:bg-white/10 hover:text-white">
+                  {cat.name}
+                </Button>
+              </Link>
+            ))}
+          </nav>
+
+          <form onSubmit={handleSearch} className="flex-1 max-w-lg ml-auto relative group">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <Input 
               value={search}
@@ -54,12 +70,10 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
               data-testid="input-search-global"
             />
           </form>
-        </div>
 
-        {/* Categories Bar */}
-        <div className="border-t border-black bg-black">
-          <div className="container mx-auto px-4">
-            <div className="flex items-center gap-1 overflow-x-auto py-2 no-scrollbar">
+          </div>
+
+          <nav aria-label="Mobile navigation" className="flex md:hidden items-center gap-1 overflow-x-auto pt-2 no-scrollbar">
               <Link href="/">
                 <Button variant="ghost" size="sm" className="whitespace-nowrap rounded-full text-white hover:bg-white/10 hover:text-white">
                   All
@@ -72,8 +86,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
                   </Button>
                 </Link>
               ))}
-            </div>
-          </div>
+          </nav>
         </div>
       </header>
 
