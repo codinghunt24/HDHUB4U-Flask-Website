@@ -8,6 +8,13 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
+export const appMigrationsTable = pgTable("app_migrations", {
+  name: text("name").primaryKey(),
+  appliedAt: timestamp("applied_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const categoriesTable = pgTable(
   "categories",
   {
@@ -26,6 +33,7 @@ export const postsTable = pgTable(
   {
     id: serial("id").primaryKey(),
     title: text("title").notNull(),
+    titleSource: text("title_source").notNull().default("manual"),
     slug: text("slug").notNull(),
     thumbnailUrl: text("thumbnail_url").notNull(),
     excerpt: text("excerpt").notNull().default(""),

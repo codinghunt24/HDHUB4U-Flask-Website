@@ -51,6 +51,10 @@ import {
   persistSitemapCandidates,
   resolvePublicDestination,
 } from "../lib/sitemap-import";
+import {
+  getImportedTitleUpdate,
+  normalizeScrapedTitle,
+} from "../lib/seo-title";
 
 const router: IRouter = Router();
 const SESSION_COOKIE = "hdhub4u_admin";
@@ -271,7 +275,7 @@ const getMetaContent = (html: string, key: string) => {
 
 const parsePostPage = async (url: URL) => {
   const html = await fetchSourceText(url);
-  const title = cleanText(
+  const sourceTitle = cleanText(
     getMetaContent(html, "og:title") ??
       getMetaContent(html, "twitter:title") ??
       html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ??
@@ -297,7 +301,10 @@ const parsePostPage = async (url: URL) => {
     .replace(/\.[a-z0-9]+$/i, "")
     .replace(/[-_]+/g, " ");
   return {
-    title: (title || cleanText(fallbackTitle)).slice(0, 220),
+    title: normalizeScrapedTitle(
+      sourceTitle || cleanText(fallbackTitle),
+      url,
+    ),
     thumbnailUrl: image
       ? new URL(image, url).toString()
       : "/editorial-streaming.jpg",
@@ -638,10 +645,14 @@ router.patch("/admin/posts/:id", async (req, res): Promise<void> => {
   }
   const update: {
     title?: string;
+    titleSource?: string;
     published?: boolean;
     categoryId?: number;
   } = {};
-  if (body.data.title !== undefined) update.title = body.data.title;
+  if (body.data.title !== undefined) {
+    update.title = body.data.title;
+    update.titleSource = "manual";
+  }
   if (body.data.status !== undefined) {
     update.published = body.data.status === "published";
   }
@@ -815,6 +826,7 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
           .insert(postsTable)
           .values({
             title: candidate.title,
+            titleSource: "auto",
             slug: `${slugify(candidate.title)}-${Date.now().toString(36)}-${offset + candidateIndex}`,
             thumbnailUrl: candidate.thumbnailUrl,
             excerpt: `Imported listing from ${sitemapUrl.hostname}. Review and edit before republishing.`,
@@ -827,10 +839,27 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
           .onConflictDoNothing({ target: postsTable.sourceUrl })
           .returning({ id: postsTable.id });
         if (created) return true;
+        const [existing] = await db
+          .select({ titleSource: postsTable.titleSource })
+          .from(postsTable)
+          .where(eq(postsTable.sourceUrl, candidate.url));
+        const duplicateUpdate: {
+          publishedAt?: Date;
+          title?: string;
+        } = {};
         if (candidate.publishedAt) {
+          duplicateUpdate.publishedAt = sourcePublishedAt;
+        }
+        if (existing?.titleSource === "auto") {
+          Object.assign(
+            duplicateUpdate,
+            getImportedTitleUpdate(existing.titleSource, candidate.title),
+          );
+        }
+        if (Object.keys(duplicateUpdate).length > 0) {
           await db
             .update(postsTable)
-            .set({ publishedAt: sourcePublishedAt })
+            .set(duplicateUpdate)
             .where(eq(postsTable.sourceUrl, candidate.url));
         }
         return false;
@@ -947,9 +976,10 @@ router.post("/admin/import", async (req, res): Promise<void> => {
       );
       if (!link?.[1] || title.length < 4) return null;
       try {
+        const candidateUrl = new URL(link[1], source).toString();
         return {
-          title: title.slice(0, 220),
-          url: new URL(link[1], source).toString(),
+          title: normalizeScrapedTitle(title, candidateUrl),
+          url: candidateUrl,
           thumbnailUrl: imageMatch?.[1]
             ? new URL(imageMatch[1], source).toString()
             : "/editorial-streaming.jpg",
@@ -974,13 +1004,19 @@ router.post("/admin/import", async (req, res): Promise<void> => {
     // even when all items are imported during the same request.
     const sourcePublishedAt = new Date(importTimestamp - candidateIndex * 1000);
     const [existing] = await db
-      .select({ id: postsTable.id })
+      .select({
+        id: postsTable.id,
+        titleSource: postsTable.titleSource,
+      })
       .from(postsTable)
       .where(eq(postsTable.sourceUrl, candidate.url));
     if (existing) {
       await db
         .update(postsTable)
-        .set({ publishedAt: sourcePublishedAt })
+        .set({
+          publishedAt: sourcePublishedAt,
+          ...getImportedTitleUpdate(existing.titleSource, candidate.title),
+        })
         .where(eq(postsTable.id, existing.id));
       skipped += 1;
       continue;
@@ -990,6 +1026,7 @@ router.post("/admin/import", async (req, res): Promise<void> => {
       .insert(postsTable)
       .values({
         title: candidate.title,
+        titleSource: "auto",
         slug: uniqueSlug,
         thumbnailUrl: candidate.thumbnailUrl,
         excerpt: `Imported listing from ${hostname}. Review and edit before republishing.`,
