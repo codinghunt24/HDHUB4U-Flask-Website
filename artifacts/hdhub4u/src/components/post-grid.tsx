@@ -17,7 +17,7 @@ export function PostGrid({ posts, isLoading, title, emptyMessage = "No posts fou
     return (
       <div className="space-y-6">
         {title && <h2 className="text-2xl font-bold text-white" style={{ fontFamily: '"Open Sans", sans-serif' }}>{title}</h2>}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
           {Array.from({ length: 8 }).map((_, i) => (
               <Card key={i} className="overflow-hidden border-0 shadow-sm bg-black">
               <Skeleton className="w-full aspect-[2/3]" />
@@ -48,7 +48,7 @@ export function PostGrid({ posts, isLoading, title, emptyMessage = "No posts fou
   return (
     <div className="space-y-6">
       {title && <h2 className="text-2xl font-bold text-white" style={{ fontFamily: '"Open Sans", sans-serif' }}>{title}</h2>}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         {posts.map((post) => (
           <Link key={post.id} href={`/post/${post.slug}`} className="group block h-full">
             <Card className="h-full overflow-hidden border-0 shadow-sm bg-black transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5 flex flex-col group">
