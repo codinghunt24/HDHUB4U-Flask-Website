@@ -16,7 +16,7 @@ export function PostGrid({ posts, isLoading, title, emptyMessage = "No posts fou
   if (isLoading) {
     return (
       <div className="space-y-6">
-        {title && <h2 className="text-2xl font-display font-bold text-gray-900">{title}</h2>}
+        {title && <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: '"Open Sans", sans-serif' }}>{title}</h2>}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {Array.from({ length: 8 }).map((_, i) => (
             <Card key={i} className="overflow-hidden border-0 shadow-sm bg-white">
@@ -47,7 +47,7 @@ export function PostGrid({ posts, isLoading, title, emptyMessage = "No posts fou
 
   return (
     <div className="space-y-6">
-      {title && <h2 className="text-2xl font-display font-bold text-gray-900">{title}</h2>}
+      {title && <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: '"Open Sans", sans-serif' }}>{title}</h2>}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {posts.map((post) => (
           <Link key={post.id} href={`/post/${post.slug}`} className="group block h-full">

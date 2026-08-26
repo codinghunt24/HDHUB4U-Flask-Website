@@ -32,7 +32,7 @@ export default function Home() {
       <PostGrid 
         posts={data?.items} 
         isLoading={isLoading} 
-        title={search ? undefined : "Recently Added"}
+        title={search ? undefined : "Latest Releases"}
         emptyMessage={search ? "No posts matched your search." : "No posts published yet."}
       />
 
