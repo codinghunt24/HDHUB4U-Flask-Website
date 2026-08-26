@@ -10,6 +10,16 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
   const [search, setSearch] = useState("");
   const { data: settings } = useGetPublicSettings();
   const { data: categories } = useListCategories();
+  const menuCategorySlugs = [
+    "bollywood",
+    "hollywood",
+    "hindi-dubbed",
+    "south-hindi",
+    "web-series",
+  ];
+  const menuCategories = menuCategorySlugs
+    .map((slug) => categories?.find((category) => category.slug === slug))
+    .filter((category): category is NonNullable<typeof category> => Boolean(category));
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
@@ -55,7 +65,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
                   All
                 </Button>
               </Link>
-              {categories?.map((cat) => (
+              {menuCategories.map((cat) => (
                 <Link key={cat.id} href={`/category/${cat.slug}`}>
                   <Button variant="ghost" size="sm" className="whitespace-nowrap rounded-full text-white hover:bg-white/10 hover:text-white">
                     {cat.name}
