@@ -1,9 +1,20 @@
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import {
+  createHash,
+  createHmac,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
+import { lookup } from "node:dns/promises";
+import { request as httpRequest } from "node:http";
+import { request as httpsRequest } from "node:https";
+import { isIP, type LookupFunction } from "node:net";
 import { Router, type IRouter, type Request } from "express";
 import {
   AdminLoginBody,
   AdminLoginResponse,
   AdminLogoutResponse,
+  DiscoverSitemapsBody,
+  DiscoverSitemapsResponse,
   GetAdminSessionResponse,
   GetAdminSettingsResponse,
   GetAdminSitemapResponse,
@@ -18,6 +29,8 @@ import {
   ListCategoriesResponse,
   ListPostsQueryParams,
   ListPostsResponse,
+  ScrapeSitemapBody,
+  ScrapeSitemapResponse,
   UpdateAdminPostBody,
   UpdateAdminPostParams,
   UpdateAdminPostResponse,
@@ -65,6 +78,317 @@ const slugify = (value: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 90) || `post-${Date.now()}`;
+
+const IMPORT_USER_AGENT =
+  "HDHUB4U Authorized Content Importer/1.0 (+https://hdhub4u.tech)";
+const SITEMAP_BATCH_SIZE = 25;
+const PAGE_FETCH_CONCURRENCY = 5;
+const SITEMAP_FETCH_CONCURRENCY = 4;
+const MAX_SOURCE_REDIRECTS = 5;
+const MAX_SOURCE_BYTES = 12 * 1024 * 1024;
+
+const getSitemapId = (url: string) =>
+  createHmac(
+    "sha256",
+    process.env.SESSION_SECRET ?? "hdhub4u-development-secret",
+  )
+    .update(url)
+    .digest("base64url");
+
+const isValidSitemapId = (url: string, id: string) => {
+  const expected = Buffer.from(getSitemapId(url));
+  const provided = Buffer.from(id);
+  return (
+    expected.length === provided.length && timingSafeEqual(expected, provided)
+  );
+};
+
+const isUnsafeIpAddress = (address: string) => {
+  if (isIP(address) === 4) {
+    const parts = address.split(".").map(Number);
+    const [a, b] = parts;
+    return (
+      a === 0 ||
+      a === 10 ||
+      a === 127 ||
+      (a === 100 && b >= 64 && b <= 127) ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 0) ||
+      (a === 192 && b === 0 && parts[2] === 2) ||
+      (a === 192 && b === 168) ||
+      (a === 198 && (b === 18 || b === 19)) ||
+      (a === 198 && b === 51 && parts[2] === 100) ||
+      (a === 203 && b === 0 && parts[2] === 113) ||
+      a >= 224
+    );
+  }
+  if (isIP(address) === 6) {
+    const normalized = address.toLowerCase();
+    return (
+      normalized === "::" ||
+      normalized === "::1" ||
+      normalized.startsWith("::") ||
+      normalized.startsWith("::ffff:") ||
+      normalized.startsWith("fc") ||
+      normalized.startsWith("fd") ||
+      /^fe[89ab]/.test(normalized) ||
+      normalized.startsWith("ff") ||
+      normalized.startsWith("2001:db8") ||
+      normalized.startsWith("2001:0:")
+    );
+  }
+  return true;
+};
+
+const parseExternalUrl = (value: string) => {
+  const url = new URL(value);
+  const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (
+    !["http:", "https:"].includes(url.protocol) ||
+    hostname === "localhost" ||
+    hostname.endsWith(".local") ||
+    (isIP(hostname) > 0 && isUnsafeIpAddress(hostname))
+  ) {
+    throw new Error("This source URL is not allowed");
+  }
+  return url;
+};
+
+const resolvePublicDestination = async (url: URL) => {
+  const hostname = url.hostname.replace(/^\[|\]$/g, "");
+  const addresses = isIP(hostname)
+    ? [{ address: hostname, family: isIP(hostname) }]
+    : await lookup(hostname, { all: true, verbatim: true });
+  if (
+    addresses.length === 0 ||
+    addresses.some(({ address }) => isUnsafeIpAddress(address))
+  ) {
+    throw new Error("This source resolves to a non-public address");
+  }
+  return addresses[0];
+};
+
+const requestSourceText = async (
+  url: URL,
+  destination: { address: string; family: number },
+) =>
+  new Promise<{
+    statusCode: number;
+    location: string | null;
+    body: string;
+  }>((resolve, reject) => {
+    const boundLookup: LookupFunction = (_hostname, options, callback) => {
+      if (typeof options === "object" && options.all) {
+        callback(null, [destination]);
+        return;
+      }
+      callback(null, destination.address, destination.family);
+    };
+    const request = (url.protocol === "https:" ? httpsRequest : httpRequest)(
+      url,
+      {
+        method: "GET",
+        headers: {
+          "user-agent": IMPORT_USER_AGENT,
+          "accept-encoding": "identity",
+        },
+        lookup: boundLookup,
+      },
+      (response) => {
+        const chunks: Buffer[] = [];
+        let receivedBytes = 0;
+        response.on("data", (chunk: Buffer) => {
+          receivedBytes += chunk.length;
+          if (receivedBytes > MAX_SOURCE_BYTES) {
+            request.destroy(new Error("Source response is too large"));
+            return;
+          }
+          chunks.push(chunk);
+        });
+        response.on("end", () => {
+          const locationHeader = response.headers.location;
+          resolve({
+            statusCode: response.statusCode ?? 0,
+            location:
+              typeof locationHeader === "string" ? locationHeader : null,
+            body: Buffer.concat(chunks).toString("utf8"),
+          });
+        });
+      },
+    );
+    request.setTimeout(12000, () => {
+      request.destroy(new Error("Source request timed out"));
+    });
+    request.on("error", reject);
+    request.end();
+  });
+
+const fetchSourceText = async (url: URL) => {
+  let currentUrl = url;
+  for (let redirectCount = 0; redirectCount <= MAX_SOURCE_REDIRECTS; redirectCount += 1) {
+    const destination = await resolvePublicDestination(currentUrl);
+    const response = await requestSourceText(currentUrl, destination);
+    if (response.statusCode >= 300 && response.statusCode < 400) {
+      const location = response.location;
+      if (!location || redirectCount === MAX_SOURCE_REDIRECTS) {
+        throw new Error("Source redirected too many times");
+      }
+      currentUrl = parseExternalUrl(new URL(location, currentUrl).toString());
+      continue;
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw new Error(`Source returned ${response.statusCode}`);
+    }
+    return response.body;
+  }
+  throw new Error("Source redirected too many times");
+};
+
+const extractXmlLocations = (xml: string) =>
+  [...xml.matchAll(/<loc\b[^>]*>([\s\S]*?)<\/loc>/gi)]
+    .map((match) => cleanText(match[1]))
+    .filter(Boolean);
+
+const discoverSitemapRoot = async (sourceUrl: URL) => {
+  const candidates = /\.xml$/i.test(sourceUrl.pathname)
+    ? [sourceUrl]
+    : [
+        new URL("/sitemap.xml", sourceUrl.origin),
+        new URL("/sitemap_index.xml", sourceUrl.origin),
+      ];
+  let lastError: unknown = null;
+  for (const candidate of candidates) {
+    try {
+      return {
+        url: candidate,
+        xml: await fetchSourceText(candidate),
+      };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError ?? new Error("Could not find a sitemap");
+};
+
+const getPostSitemapEntries = async (sourceUrl: URL) => {
+  const root = await discoverSitemapRoot(sourceUrl);
+  const rootLocations = extractXmlLocations(root.xml);
+  const childUrls = /<sitemapindex\b/i.test(root.xml)
+    ? [
+        ...new Set(
+          rootLocations
+            .map((location) => {
+              try {
+                const url = new URL(location, root.url);
+                return url.hostname === sourceUrl.hostname &&
+                  /\.xml$/i.test(url.pathname) &&
+                  !/(?:sitemap-misc|(?:category|page|authors?|archives?|tags?)-sitemap)/i.test(
+                    url.pathname,
+                  )
+                  ? url.toString()
+                  : null;
+              } catch {
+                return null;
+              }
+            })
+            .filter((url): url is string => Boolean(url)),
+        ),
+      ].map((url) => new URL(url))
+    : /<urlset\b/i.test(root.xml)
+      ? [root.url]
+      : [];
+
+  if (childUrls.length === 0) {
+    throw new Error("No post sitemaps were found at this source");
+  }
+
+  const entries: Array<{ id: string; url: string; postCount: number }> = [];
+  for (
+    let index = 0;
+    index < childUrls.length;
+    index += SITEMAP_FETCH_CONCURRENCY
+  ) {
+    const batch = childUrls.slice(index, index + SITEMAP_FETCH_CONCURRENCY);
+    const results = await Promise.all(
+      batch.map(async (childUrl) => {
+        const xml =
+          childUrl.toString() === root.url.toString()
+            ? root.xml
+            : await fetchSourceText(childUrl);
+        if (!/<urlset\b/i.test(xml)) return null;
+        const postCount = new Set(extractXmlLocations(xml)).size;
+        return postCount > 0
+          ? {
+              id: getSitemapId(childUrl.toString()),
+              url: childUrl.toString(),
+              postCount,
+            }
+          : null;
+      }),
+    );
+    for (const entry of results) {
+      if (entry) entries.push(entry);
+    }
+  }
+
+  if (entries.length === 0) {
+    throw new Error("The discovered sitemaps do not contain posts");
+  }
+  return { rootUrl: root.url.toString(), entries };
+};
+
+const getHtmlAttribute = (tag: string, attribute: string) => {
+  const match = tag.match(
+    new RegExp(`${attribute}\\s*=\\s*["']([^"']+)["']`, "i"),
+  );
+  return match?.[1] ?? null;
+};
+
+const getMetaContent = (html: string, key: string) => {
+  for (const match of html.matchAll(/<meta\b[^>]*>/gi)) {
+    const tag = match[0];
+    const property = getHtmlAttribute(tag, "property");
+    const name = getHtmlAttribute(tag, "name");
+    if (property?.toLowerCase() === key || name?.toLowerCase() === key) {
+      return getHtmlAttribute(tag, "content");
+    }
+  }
+  return null;
+};
+
+const parsePostPage = async (url: URL) => {
+  const html = await fetchSourceText(url);
+  const title = cleanText(
+    getMetaContent(html, "og:title") ??
+      getMetaContent(html, "twitter:title") ??
+      html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ??
+      html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] ??
+      "",
+  );
+  const image = getMetaContent(html, "og:image") ??
+    getMetaContent(html, "twitter:image") ??
+    html.match(
+      /<img\b[^>]*(?:src|data-src|data-lazy-src)=["']([^"']+)["'][^>]*>/i,
+    )?.[1] ??
+    null;
+  const lastPathSegment = url.pathname.split("/").filter(Boolean).pop() ?? "Imported post";
+  const fallbackTitle = (() => {
+    try {
+      return decodeURIComponent(lastPathSegment);
+    } catch {
+      return lastPathSegment;
+    }
+  })()
+    .replace(/\.[a-z0-9]+$/i, "")
+    .replace(/[-_]+/g, " ");
+  return {
+    title: (title || cleanText(fallbackTitle)).slice(0, 220),
+    thumbnailUrl: image
+      ? new URL(image, url).toString()
+      : "/editorial-streaming.jpg",
+  };
+};
 
 const hashToken = (token: string) =>
   createHash("sha256").update(token).digest("hex");
@@ -432,6 +756,175 @@ router.patch("/admin/posts/:id", async (req, res): Promise<void> => {
   );
 });
 
+router.post("/admin/sitemaps/discover", async (req, res): Promise<void> => {
+  if (!(await requireAdmin(req))) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const parsed = DiscoverSitemapsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  let sourceUrl: URL;
+  try {
+    sourceUrl = parseExternalUrl(parsed.data.url);
+  } catch (error) {
+    res.status(400).json({
+      error: error instanceof Error ? error.message : "Please enter a valid URL",
+    });
+    return;
+  }
+
+  try {
+    const discovered = await getPostSitemapEntries(sourceUrl);
+    res.json(
+      DiscoverSitemapsResponse.parse({
+        sourceUrl: sourceUrl.toString(),
+        sitemapUrl: discovered.rootUrl,
+        sitemaps: discovered.entries,
+      }),
+    );
+  } catch (error) {
+    req.log.warn(
+      { err: error, hostname: sourceUrl.hostname },
+      "Sitemap discovery failed",
+    );
+    res.status(400).json({
+      error:
+        error instanceof Error
+          ? error.message
+          : "Could not discover source sitemaps",
+    });
+  }
+});
+
+router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
+  if (!(await requireAdmin(req))) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const parsed = ScrapeSitemapBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  let sitemapUrl: URL;
+  try {
+    sitemapUrl = parseExternalUrl(parsed.data.sitemapUrl);
+  } catch (error) {
+    res.status(400).json({
+      error: error instanceof Error ? error.message : "Please enter a valid sitemap URL",
+    });
+    return;
+  }
+  if (
+    !isValidSitemapId(sitemapUrl.toString(), parsed.data.sitemapId) ||
+    !/\.xml$/i.test(sitemapUrl.pathname)
+  ) {
+    res.status(400).json({ error: "This sitemap was not discovered by the server" });
+    return;
+  }
+  const offset = Math.max(0, Math.floor(parsed.data.offset));
+
+  try {
+    const sitemapXml = await fetchSourceText(sitemapUrl);
+    const postUrls = [...new Set(extractXmlLocations(sitemapXml))].map(
+      (location) => new URL(location, sitemapUrl).toString(),
+    );
+    const batchUrls = postUrls.slice(offset, offset + SITEMAP_BATCH_SIZE);
+    const candidates: Array<{
+      url: string;
+      title: string;
+      thumbnailUrl: string;
+    }> = [];
+    let failed = 0;
+
+    for (let index = 0; index < batchUrls.length; index += PAGE_FETCH_CONCURRENCY) {
+      const batch = batchUrls.slice(index, index + PAGE_FETCH_CONCURRENCY);
+      const results = await Promise.all(
+        batch.map(async (postUrl) => {
+          try {
+            const parsedPostUrl = parseExternalUrl(postUrl);
+            return {
+              url: postUrl,
+              ...(await parsePostPage(parsedPostUrl)),
+            };
+          } catch (error) {
+            req.log.warn({ err: error, postUrl }, "Sitemap post fetch failed");
+            return null;
+          }
+        }),
+      );
+      for (const result of results) {
+        if (result) candidates.push(result);
+        else failed += 1;
+      }
+    }
+
+    const [defaultCategory] = await db
+      .select()
+      .from(categoriesTable)
+      .where(eq(categoriesTable.slug, "latest"));
+    if (!defaultCategory) {
+      res.status(500).json({ error: "Default category is missing" });
+      return;
+    }
+
+    let imported = 0;
+    let skipped = 0;
+    const importTimestamp = Date.now();
+    for (const [candidateIndex, candidate] of candidates.entries()) {
+      const sourcePublishedAt = new Date(
+        importTimestamp - (offset + candidateIndex) * 1000,
+      );
+      const [created] = await db
+        .insert(postsTable)
+        .values({
+          title: candidate.title,
+          slug: `${slugify(candidate.title)}-${Date.now().toString(36)}-${offset + candidateIndex}`,
+          thumbnailUrl: candidate.thumbnailUrl,
+          excerpt: `Imported listing from ${sitemapUrl.hostname}. Review and edit before republishing.`,
+          sourceUrl: candidate.url,
+          sourceDomain: sitemapUrl.hostname,
+          categoryId: defaultCategory.id,
+          published: true,
+          publishedAt: sourcePublishedAt,
+        })
+        .onConflictDoNothing({ target: postsTable.sourceUrl })
+        .returning({ id: postsTable.id });
+      if (created) imported += 1;
+      else skipped += 1;
+    }
+
+    await db
+      .insert(importRunsTable)
+      .values({ sourceUrl: sitemapUrl.toString(), imported, skipped });
+
+    const processed = batchUrls.length;
+    const nextOffset =
+      offset + processed < postUrls.length ? offset + processed : null;
+    res.json(
+      ScrapeSitemapResponse.parse({
+        sitemapUrl: sitemapUrl.toString(),
+        offset,
+        processed,
+        total: postUrls.length,
+        imported,
+        skipped,
+        failed,
+        nextOffset,
+      }),
+    );
+  } catch (error) {
+    req.log.warn({ err: error, sitemapUrl: sitemapUrl.toString() }, "Sitemap scrape failed");
+    res.status(400).json({
+      error:
+        error instanceof Error ? error.message : "Could not scrape sitemap",
+    });
+  }
+});
+
 router.post("/admin/import", async (req, res): Promise<void> => {
   if (!(await requireAdmin(req))) {
     res.status(401).json({ error: "Unauthorized" });
@@ -444,36 +937,17 @@ router.post("/admin/import", async (req, res): Promise<void> => {
   }
   let source: URL;
   try {
-    source = new URL(parsed.data.url);
-  } catch {
-    res.status(400).json({ error: "Please enter a valid URL" });
+    source = parseExternalUrl(parsed.data.url);
+  } catch (error) {
+    res.status(400).json({
+      error: error instanceof Error ? error.message : "Please enter a valid URL",
+    });
     return;
   }
   const hostname = source.hostname.toLowerCase();
-  if (
-    !["http:", "https:"].includes(source.protocol) ||
-    hostname === "localhost" ||
-    hostname.endsWith(".local") ||
-    /^(127|10|192\.168|172\.(1[6-9]|2\d|3[01]))\./.test(hostname)
-  ) {
-    res.status(400).json({ error: "This source URL is not allowed" });
-    return;
-  }
   let html: string;
   try {
-    const response = await fetch(source, {
-      redirect: "follow",
-      headers: {
-        "user-agent":
-          "HDHUB4U Authorized Content Importer/1.0 (+https://hdhub4u.tech)",
-      },
-      signal: AbortSignal.timeout(12000),
-    });
-    if (!response.ok) {
-      res.status(400).json({ error: `Source returned ${response.status}` });
-      return;
-    }
-    html = await response.text();
+    html = await fetchSourceText(source);
   } catch (error) {
     req.log.warn({ err: error, hostname }, "Authorized import fetch failed");
     res.status(400).json({ error: "Could not fetch the source URL" });

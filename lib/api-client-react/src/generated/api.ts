@@ -36,7 +36,11 @@ import type {
   PostUpdate,
   PublicSettings,
   SettingsUpdate,
+  SitemapDiscoveryInput,
+  SitemapDiscoveryResult,
   SitemapInfo,
+  SitemapScrapeInput,
+  SitemapScrapeResult,
   SuccessResponse
 } from './api.schemas';
 
@@ -981,6 +985,148 @@ export const useImportPosts = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getImportPostsMutationOptions(options));
+    }
+
+export const getDiscoverSitemapsUrl = () => {
+
+
+
+
+  return `/api/admin/sitemaps/discover`
+}
+
+/**
+ * @summary Discover post sitemaps from an authorized source URL
+ */
+export const discoverSitemaps = async (sitemapDiscoveryInput: SitemapDiscoveryInput, options?: Parameters<typeof customFetch>[1]): Promise<SitemapDiscoveryResult> => {
+
+  return customFetch<SitemapDiscoveryResult>(getDiscoverSitemapsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sitemapDiscoveryInput)
+  }
+);}
+
+
+
+
+
+export const getDiscoverSitemapsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof discoverSitemaps>>, TError,{data: BodyType<SitemapDiscoveryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof discoverSitemaps>>, TError,{data: BodyType<SitemapDiscoveryInput>}, TContext> => {
+
+const mutationKey = ['discoverSitemaps'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof discoverSitemaps>>, {data: BodyType<SitemapDiscoveryInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  discoverSitemaps(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DiscoverSitemapsMutationResult = NonNullable<Awaited<ReturnType<typeof discoverSitemaps>>>
+    export type DiscoverSitemapsMutationBody = BodyType<SitemapDiscoveryInput>
+    export type DiscoverSitemapsMutationError = ErrorType<void>
+
+    /**
+ * @summary Discover post sitemaps from an authorized source URL
+ */
+export const useDiscoverSitemaps = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof discoverSitemaps>>, TError,{data: BodyType<SitemapDiscoveryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof discoverSitemaps>>,
+        TError,
+        {data: BodyType<SitemapDiscoveryInput>},
+        TContext
+      > => {
+      return useMutation(getDiscoverSitemapsMutationOptions(options));
+    }
+
+export const getScrapeSitemapUrl = () => {
+
+
+
+
+  return `/api/admin/sitemaps/scrape`
+}
+
+/**
+ * @summary Scrape one sitemap in a bounded batch
+ */
+export const scrapeSitemap = async (sitemapScrapeInput: SitemapScrapeInput, options?: Parameters<typeof customFetch>[1]): Promise<SitemapScrapeResult> => {
+
+  return customFetch<SitemapScrapeResult>(getScrapeSitemapUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sitemapScrapeInput)
+  }
+);}
+
+
+
+
+
+export const getScrapeSitemapMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scrapeSitemap>>, TError,{data: BodyType<SitemapScrapeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof scrapeSitemap>>, TError,{data: BodyType<SitemapScrapeInput>}, TContext> => {
+
+const mutationKey = ['scrapeSitemap'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof scrapeSitemap>>, {data: BodyType<SitemapScrapeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  scrapeSitemap(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ScrapeSitemapMutationResult = NonNullable<Awaited<ReturnType<typeof scrapeSitemap>>>
+    export type ScrapeSitemapMutationBody = BodyType<SitemapScrapeInput>
+    export type ScrapeSitemapMutationError = ErrorType<void>
+
+    /**
+ * @summary Scrape one sitemap in a bounded batch
+ */
+export const useScrapeSitemap = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scrapeSitemap>>, TError,{data: BodyType<SitemapScrapeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof scrapeSitemap>>,
+        TError,
+        {data: BodyType<SitemapScrapeInput>},
+        TContext
+      > => {
+      return useMutation(getScrapeSitemapMutationOptions(options));
     }
 
 export const getGetAdminSettingsUrl = () => {

@@ -1,1 +1,2 @@
 - [OpenAPI numeric schemas](openapi-zod-number-compat.md) — API codegen targets Zod 3 here; OpenAPI integers and uri format currently emit Zod 4-only helpers.
+- [Pinned outbound requests](pinned-outbound-requests.md) — validate external-source DNS and pin HTTP connections to that address; Node 24 custom lookup may request all addresses.

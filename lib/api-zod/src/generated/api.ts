@@ -247,6 +247,45 @@ export const ImportPostsResponse = zod.object({
 
 
 /**
+ * @summary Discover post sitemaps from an authorized source URL
+ */
+export const DiscoverSitemapsBody = zod.object({
+  "url": zod.string()
+})
+
+export const DiscoverSitemapsResponse = zod.object({
+  "sourceUrl": zod.string(),
+  "sitemapUrl": zod.string(),
+  "sitemaps": zod.array(zod.object({
+  "id": zod.string(),
+  "url": zod.string(),
+  "postCount": zod.number()
+}))
+})
+
+
+/**
+ * @summary Scrape one sitemap in a bounded batch
+ */
+export const ScrapeSitemapBody = zod.object({
+  "sitemapId": zod.string(),
+  "sitemapUrl": zod.string(),
+  "offset": zod.number()
+})
+
+export const ScrapeSitemapResponse = zod.object({
+  "sitemapUrl": zod.string(),
+  "offset": zod.number(),
+  "processed": zod.number(),
+  "total": zod.number(),
+  "imported": zod.number(),
+  "skipped": zod.number(),
+  "failed": zod.number(),
+  "nextOffset": zod.number().nullable()
+})
+
+
+/**
  * @summary Get site settings
  */
 export const GetAdminSettingsResponse = zod.object({

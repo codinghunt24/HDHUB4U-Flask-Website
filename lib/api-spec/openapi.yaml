@@ -246,6 +246,50 @@ paths:
           description: Invalid URL or source
         "401":
           description: Unauthorized
+  /admin/sitemaps/discover:
+    post:
+      operationId: discoverSitemaps
+      tags: [admin]
+      summary: Discover post sitemaps from an authorized source URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SitemapDiscoveryInput"
+      responses:
+        "200":
+          description: Discovered post sitemaps
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SitemapDiscoveryResult"
+        "400":
+          description: Invalid URL or source
+        "401":
+          description: Unauthorized
+  /admin/sitemaps/scrape:
+    post:
+      operationId: scrapeSitemap
+      tags: [admin]
+      summary: Scrape one sitemap in a bounded batch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SitemapScrapeInput"
+      responses:
+        "200":
+          description: Sitemap scrape batch result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SitemapScrapeResult"
+        "400":
+          description: Invalid sitemap or source
+        "401":
+          description: Unauthorized
   /admin/settings:
     get:
       operationId: getAdminSettings
@@ -403,6 +447,47 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminPost"
+    SitemapDiscoveryInput:
+      type: object
+      required: [url]
+      properties:
+        url: { type: string }
+    SitemapEntry:
+      type: object
+      required: [id, url, postCount]
+      properties:
+        id: { type: string }
+        url: { type: string }
+        postCount: { type: number }
+    SitemapDiscoveryResult:
+      type: object
+      required: [sourceUrl, sitemapUrl, sitemaps]
+      properties:
+        sourceUrl: { type: string }
+        sitemapUrl: { type: string }
+        sitemaps:
+          type: array
+          items:
+            $ref: "#/components/schemas/SitemapEntry"
+    SitemapScrapeInput:
+      type: object
+      required: [sitemapId, sitemapUrl, offset]
+      properties:
+        sitemapId: { type: string }
+        sitemapUrl: { type: string }
+        offset: { type: number }
+    SitemapScrapeResult:
+      type: object
+      required: [sitemapUrl, offset, processed, total, imported, skipped, failed, nextOffset]
+      properties:
+        sitemapUrl: { type: string }
+        offset: { type: number }
+        processed: { type: number }
+        total: { type: number }
+        imported: { type: number }
+        skipped: { type: number }
+        failed: { type: number }
+        nextOffset: { type: ["number", "null"] }
     AdminSummary:
       type: object
       required: [publishedPosts, draftPosts, categories, lastImportAt]

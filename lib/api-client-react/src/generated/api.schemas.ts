@@ -113,6 +113,40 @@ export interface ImportResult {
   items: AdminPost[];
 }
 
+export interface SitemapDiscoveryInput {
+  url: string;
+}
+
+export interface SitemapEntry {
+  id: string;
+  url: string;
+  postCount: number;
+}
+
+export interface SitemapDiscoveryResult {
+  sourceUrl: string;
+  sitemapUrl: string;
+  sitemaps: SitemapEntry[];
+}
+
+export interface SitemapScrapeInput {
+  sitemapId: string;
+  sitemapUrl: string;
+  offset: number;
+}
+
+export interface SitemapScrapeResult {
+  sitemapUrl: string;
+  offset: number;
+  processed: number;
+  total: number;
+  imported: number;
+  skipped: number;
+  failed: number;
+  /** @nullable */
+  nextOffset: number | null;
+}
+
 export interface AdminSummary {
   publishedPosts: number;
   draftPosts: number;
