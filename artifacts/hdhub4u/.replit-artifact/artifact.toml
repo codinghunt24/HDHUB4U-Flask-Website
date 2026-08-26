@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "HDHUB4U"
+description = "A Hindi content publishing website with a public catalog, SEO-ready pages, and a private admin workspace for managing categories, imports, sitemap, and analytics settings."
+version = "1.0.0"
+id = "artifacts/hdhub4u"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21976
+
+[services.development]
+run = "pnpm --filter @workspace/hdhub4u run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/hdhub4u", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/hdhub4u/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21976"
+BASE_PATH = "/"

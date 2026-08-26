@@ -1,0 +1,1 @@
+- [OpenAPI numeric schemas](openapi-zod-number-compat.md) — API codegen targets Zod 3 here; OpenAPI integers and uri format currently emit Zod 4-only helpers.

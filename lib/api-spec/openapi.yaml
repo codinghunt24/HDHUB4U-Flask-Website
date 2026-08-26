@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: public
+    description: Public catalog and SEO endpoints
+  - name: admin
+    description: Private content management endpoints
 paths:
   /healthz:
     get:
@@ -24,6 +28,271 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /posts:
+    get:
+      operationId: listPosts
+      tags: [public]
+      summary: List published posts
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 1
+            maximum: 48
+            default: 12
+      responses:
+        "200":
+          description: Published posts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostList"
+  /posts/{slug}:
+    get:
+      operationId: getPost
+      tags: [public]
+      summary: Get a published post
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "404":
+          description: Post not found
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [public]
+      summary: List categories
+      responses:
+        "200":
+          description: Categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+  /settings/public:
+    get:
+      operationId: getPublicSettings
+      tags: [public]
+      summary: Get public SEO and analytics settings
+      responses:
+        "200":
+          description: Public settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicSettings"
+  /admin/session:
+    get:
+      operationId: getAdminSession
+      tags: [admin]
+      summary: Check admin session
+      responses:
+        "200":
+          description: Session state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSession"
+  /admin/login:
+    post:
+      operationId: adminLogin
+      tags: [admin]
+      summary: Log in to the admin workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLoginInput"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSession"
+        "401":
+          description: Invalid credentials
+  /admin/logout:
+    post:
+      operationId: adminLogout
+      tags: [admin]
+      summary: Log out of the admin workspace
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+  /admin/summary:
+    get:
+      operationId: getAdminSummary
+      tags: [admin]
+      summary: Get admin dashboard summary
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSummary"
+        "401":
+          description: Unauthorized
+  /admin/posts:
+    get:
+      operationId: listAdminPosts
+      tags: [admin]
+      summary: List posts for moderation
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [published, draft, all]
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Admin post list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminPost"
+        "401":
+          description: Unauthorized
+  /admin/posts/{id}:
+    patch:
+      operationId: updateAdminPost
+      tags: [admin]
+      summary: Update post visibility or metadata
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostUpdate"
+      responses:
+        "200":
+          description: Updated post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPost"
+        "401":
+          description: Unauthorized
+  /admin/import:
+    post:
+      operationId: importPosts
+      tags: [admin]
+      summary: Import authorized post listings from a URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportInput"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResult"
+        "400":
+          description: Invalid URL or source
+        "401":
+          description: Unauthorized
+  /admin/settings:
+    get:
+      operationId: getAdminSettings
+      tags: [admin]
+      summary: Get site settings
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSettings"
+        "401":
+          description: Unauthorized
+    patch:
+      operationId: updateAdminSettings
+      tags: [admin]
+      summary: Update SEO and analytics settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSettings"
+        "401":
+          description: Unauthorized
+  /admin/sitemap:
+    get:
+      operationId: getAdminSitemap
+      tags: [admin]
+      summary: Get sitemap health information
+      responses:
+        "200":
+          description: Sitemap information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SitemapInfo"
+        "401":
+          description: Unauthorized
 components:
   schemas:
     HealthStatus:
@@ -33,4 +302,125 @@ components:
           type: string
       required:
         - status
+    Category:
+      type: object
+      required: [id, name, slug, postCount]
+      properties:
+        id: { type: number }
+        name: { type: string }
+        slug: { type: string }
+        postCount: { type: number }
+    Post:
+      type: object
+      required: [id, title, slug, thumbnailUrl, excerpt, category, publishedAt]
+      properties:
+        id: { type: number }
+        title: { type: string }
+        slug: { type: string }
+        thumbnailUrl: { type: string }
+        excerpt: { type: string }
+        sourceUrl: { type: ["string", "null"] }
+        category:
+          $ref: "#/components/schemas/Category"
+        publishedAt: { type: string, format: date-time }
+    AdminPost:
+      allOf:
+        - $ref: "#/components/schemas/Post"
+        - type: object
+          required: [status, sourceDomain]
+          properties:
+            status:
+              type: string
+              enum: [published, draft]
+            sourceDomain: { type: string }
+    PostList:
+      type: object
+      required: [items, page, limit, total, totalPages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Post"
+        page: { type: number }
+        limit: { type: number }
+        total: { type: number }
+        totalPages: { type: number }
+    PublicSettings:
+      type: object
+      required: [siteName, siteDescription, analyticsId]
+      properties:
+        siteName: { type: string }
+        siteDescription: { type: string }
+        analyticsId: { type: ["string", "null"] }
+    AdminSettings:
+      type: object
+      required: [siteName, siteDescription, analyticsId, contactEmail]
+      properties:
+        siteName: { type: string }
+        siteDescription: { type: string }
+        analyticsId: { type: ["string", "null"] }
+        contactEmail: { type: string }
+    SettingsUpdate:
+      type: object
+      properties:
+        siteName: { type: string, minLength: 1 }
+        siteDescription: { type: string }
+        analyticsId: { type: ["string", "null"] }
+        contactEmail: { type: string }
+    AdminLoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, minLength: 1 }
+        password: { type: string, minLength: 1 }
+    AdminSession:
+      type: object
+      required: [authenticated]
+      properties:
+        authenticated: { type: boolean }
+        email: { type: ["string", "null"] }
+    PostUpdate:
+      type: object
+      properties:
+        title: { type: string, minLength: 1 }
+        status:
+          type: string
+          enum: [published, draft]
+        categoryId: { type: ["number", "null"] }
+    ImportInput:
+      type: object
+      required: [url]
+      properties:
+        url: { type: string }
+    ImportResult:
+      type: object
+      required: [sourceUrl, imported, skipped, items]
+      properties:
+        sourceUrl: { type: string }
+        imported: { type: number }
+        skipped: { type: number }
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPost"
+    AdminSummary:
+      type: object
+      required: [publishedPosts, draftPosts, categories, lastImportAt]
+      properties:
+        publishedPosts: { type: number }
+        draftPosts: { type: number }
+        categories: { type: number }
+        lastImportAt: { type: ["string", "null"], format: date-time }
+    SitemapInfo:
+      type: object
+      required: [url, indexedUrls, lastGeneratedAt]
+      properties:
+        url: { type: string }
+        indexedUrls: { type: number }
+        lastGeneratedAt: { type: ["string", "null"], format: date-time }
+    SuccessResponse:
+      type: object
+      required: [success]
+      properties:
+        success: { type: boolean }
 
