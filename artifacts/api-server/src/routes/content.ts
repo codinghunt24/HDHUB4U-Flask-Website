@@ -1,13 +1,7 @@
-import {
-  createHash,
-  createHmac,
-  randomBytes,
-  timingSafeEqual,
-} from "node:crypto";
-import { lookup } from "node:dns/promises";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
-import { isIP, type LookupFunction } from "node:net";
+import { type LookupFunction } from "node:net";
 import { Router, type IRouter, type Request } from "express";
 import {
   AdminLoginBody,
@@ -45,16 +39,18 @@ import {
   postsTable,
   settingsTable,
 } from "@workspace/db";
+import { and, count, desc, eq, ilike, max, or, sql } from "drizzle-orm";
 import {
-  and,
-  count,
-  desc,
-  eq,
-  ilike,
-  max,
-  or,
-  sql,
-} from "drizzle-orm";
+  SITEMAP_BATCH_SIZE,
+  extractXmlLocations,
+  getNextSitemapOffset,
+  getSitemapId,
+  getUniqueSitemapUrls,
+  isValidSitemapId,
+  parseExternalUrl,
+  persistSitemapCandidates,
+  resolvePublicDestination,
+} from "../lib/sitemap-import";
 
 const router: IRouter = Router();
 const SESSION_COOKIE = "hdhub4u_admin";
@@ -81,93 +77,10 @@ const slugify = (value: string) =>
 
 const IMPORT_USER_AGENT =
   "HDHUB4U Authorized Content Importer/1.0 (+https://hdhub4u.tech)";
-const SITEMAP_BATCH_SIZE = 25;
 const PAGE_FETCH_CONCURRENCY = 5;
 const SITEMAP_FETCH_CONCURRENCY = 4;
 const MAX_SOURCE_REDIRECTS = 5;
 const MAX_SOURCE_BYTES = 12 * 1024 * 1024;
-
-const getSitemapId = (url: string) =>
-  createHmac(
-    "sha256",
-    process.env.SESSION_SECRET ?? "hdhub4u-development-secret",
-  )
-    .update(url)
-    .digest("base64url");
-
-const isValidSitemapId = (url: string, id: string) => {
-  const expected = Buffer.from(getSitemapId(url));
-  const provided = Buffer.from(id);
-  return (
-    expected.length === provided.length && timingSafeEqual(expected, provided)
-  );
-};
-
-const isUnsafeIpAddress = (address: string) => {
-  if (isIP(address) === 4) {
-    const parts = address.split(".").map(Number);
-    const [a, b] = parts;
-    return (
-      a === 0 ||
-      a === 10 ||
-      a === 127 ||
-      (a === 100 && b >= 64 && b <= 127) ||
-      (a === 169 && b === 254) ||
-      (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && b === 0) ||
-      (a === 192 && b === 0 && parts[2] === 2) ||
-      (a === 192 && b === 168) ||
-      (a === 198 && (b === 18 || b === 19)) ||
-      (a === 198 && b === 51 && parts[2] === 100) ||
-      (a === 203 && b === 0 && parts[2] === 113) ||
-      a >= 224
-    );
-  }
-  if (isIP(address) === 6) {
-    const normalized = address.toLowerCase();
-    return (
-      normalized === "::" ||
-      normalized === "::1" ||
-      normalized.startsWith("::") ||
-      normalized.startsWith("::ffff:") ||
-      normalized.startsWith("fc") ||
-      normalized.startsWith("fd") ||
-      /^fe[89ab]/.test(normalized) ||
-      normalized.startsWith("ff") ||
-      normalized.startsWith("2001:db8") ||
-      normalized.startsWith("2001:0:")
-    );
-  }
-  return true;
-};
-
-const parseExternalUrl = (value: string) => {
-  const url = new URL(value);
-  const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  if (
-    !["http:", "https:"].includes(url.protocol) ||
-    hostname === "localhost" ||
-    hostname.endsWith(".local") ||
-    (isIP(hostname) > 0 && isUnsafeIpAddress(hostname))
-  ) {
-    throw new Error("This source URL is not allowed");
-  }
-  return url;
-};
-
-const resolvePublicDestination = async (url: URL) => {
-  const hostname = url.hostname.replace(/^\[|\]$/g, "");
-  const addresses = isIP(hostname)
-    ? [{ address: hostname, family: isIP(hostname) }]
-    : await lookup(hostname, { all: true, verbatim: true });
-  if (
-    addresses.length === 0 ||
-    addresses.some(({ address }) => isUnsafeIpAddress(address))
-  ) {
-    throw new Error("This source resolves to a non-public address");
-  }
-  return addresses[0];
-};
 
 const requestSourceText = async (
   url: URL,
@@ -226,7 +139,11 @@ const requestSourceText = async (
 
 const fetchSourceText = async (url: URL) => {
   let currentUrl = url;
-  for (let redirectCount = 0; redirectCount <= MAX_SOURCE_REDIRECTS; redirectCount += 1) {
+  for (
+    let redirectCount = 0;
+    redirectCount <= MAX_SOURCE_REDIRECTS;
+    redirectCount += 1
+  ) {
     const destination = await resolvePublicDestination(currentUrl);
     const response = await requestSourceText(currentUrl, destination);
     if (response.statusCode >= 300 && response.statusCode < 400) {
@@ -244,11 +161,6 @@ const fetchSourceText = async (url: URL) => {
   }
   throw new Error("Source redirected too many times");
 };
-
-const extractXmlLocations = (xml: string) =>
-  [...xml.matchAll(/<loc\b[^>]*>([\s\S]*?)<\/loc>/gi)]
-    .map((match) => cleanText(match[1]))
-    .filter(Boolean);
 
 const discoverSitemapRoot = async (sourceUrl: URL) => {
   const candidates = /\.xml$/i.test(sourceUrl.pathname)
@@ -273,7 +185,7 @@ const discoverSitemapRoot = async (sourceUrl: URL) => {
 
 const getPostSitemapEntries = async (sourceUrl: URL) => {
   const root = await discoverSitemapRoot(sourceUrl);
-  const rootLocations = extractXmlLocations(root.xml);
+  const rootLocations = extractXmlLocations(root.xml, cleanText);
   const childUrls = /<sitemapindex\b/i.test(root.xml)
     ? [
         ...new Set(
@@ -366,13 +278,15 @@ const parsePostPage = async (url: URL) => {
       html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] ??
       "",
   );
-  const image = getMetaContent(html, "og:image") ??
+  const image =
+    getMetaContent(html, "og:image") ??
     getMetaContent(html, "twitter:image") ??
     html.match(
       /<img\b[^>]*(?:src|data-src|data-lazy-src)=["']([^"']+)["'][^>]*>/i,
     )?.[1] ??
     null;
-  const lastPathSegment = url.pathname.split("/").filter(Boolean).pop() ?? "Imported post";
+  const lastPathSegment =
+    url.pathname.split("/").filter(Boolean).pop() ?? "Imported post";
   const fallbackTitle = (() => {
     try {
       return decodeURIComponent(lastPathSegment);
@@ -598,9 +512,7 @@ router.post("/admin/login", async (req, res): Promise<void> => {
   }
   const expectedEmail =
     process.env.ADMIN_EMAIL ??
-    (process.env.NODE_ENV === "development"
-      ? "admin@hdhub4u.tech"
-      : undefined);
+    (process.env.NODE_ENV === "development" ? "admin@hdhub4u.tech" : undefined);
   const expectedPassword =
     process.env.ADMIN_PASSWORD ??
     (process.env.NODE_ENV === "development" ? "hdhub4u-demo" : undefined);
@@ -661,7 +573,9 @@ router.get("/admin/summary", async (req, res): Promise<void> => {
     .select({ count: count() })
     .from(postsTable)
     .where(eq(postsTable.published, false));
-  const [categories] = await db.select({ count: count() }).from(categoriesTable);
+  const [categories] = await db
+    .select({ count: count() })
+    .from(categoriesTable);
   const [lastImport] = await db
     .select({ createdAt: max(importRunsTable.createdAt) })
     .from(importRunsTable);
@@ -771,7 +685,8 @@ router.post("/admin/sitemaps/discover", async (req, res): Promise<void> => {
     sourceUrl = parseExternalUrl(parsed.data.url);
   } catch (error) {
     res.status(400).json({
-      error: error instanceof Error ? error.message : "Please enter a valid URL",
+      error:
+        error instanceof Error ? error.message : "Please enter a valid URL",
     });
     return;
   }
@@ -814,7 +729,10 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
     sitemapUrl = parseExternalUrl(parsed.data.sitemapUrl);
   } catch (error) {
     res.status(400).json({
-      error: error instanceof Error ? error.message : "Please enter a valid sitemap URL",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Please enter a valid sitemap URL",
     });
     return;
   }
@@ -822,16 +740,16 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
     !isValidSitemapId(sitemapUrl.toString(), parsed.data.sitemapId) ||
     !/\.xml$/i.test(sitemapUrl.pathname)
   ) {
-    res.status(400).json({ error: "This sitemap was not discovered by the server" });
+    res
+      .status(400)
+      .json({ error: "This sitemap was not discovered by the server" });
     return;
   }
   const offset = Math.max(0, Math.floor(parsed.data.offset));
 
   try {
     const sitemapXml = await fetchSourceText(sitemapUrl);
-    const postUrls = [...new Set(extractXmlLocations(sitemapXml))].map(
-      (location) => new URL(location, sitemapUrl).toString(),
-    );
+    const postUrls = getUniqueSitemapUrls(sitemapXml, sitemapUrl, cleanText);
     const batchUrls = postUrls.slice(offset, offset + SITEMAP_BATCH_SIZE);
     const candidates: Array<{
       url: string;
@@ -840,7 +758,11 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
     }> = [];
     let failed = 0;
 
-    for (let index = 0; index < batchUrls.length; index += PAGE_FETCH_CONCURRENCY) {
+    for (
+      let index = 0;
+      index < batchUrls.length;
+      index += PAGE_FETCH_CONCURRENCY
+    ) {
       const batch = batchUrls.slice(index, index + PAGE_FETCH_CONCURRENCY);
       const results = await Promise.all(
         batch.map(async (postUrl) => {
@@ -871,39 +793,34 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
       return;
     }
 
-    let imported = 0;
-    let skipped = 0;
-    const importTimestamp = Date.now();
-    for (const [candidateIndex, candidate] of candidates.entries()) {
-      const sourcePublishedAt = new Date(
-        importTimestamp - (offset + candidateIndex) * 1000,
-      );
-      const [created] = await db
-        .insert(postsTable)
-        .values({
-          title: candidate.title,
-          slug: `${slugify(candidate.title)}-${Date.now().toString(36)}-${offset + candidateIndex}`,
-          thumbnailUrl: candidate.thumbnailUrl,
-          excerpt: `Imported listing from ${sitemapUrl.hostname}. Review and edit before republishing.`,
-          sourceUrl: candidate.url,
-          sourceDomain: sitemapUrl.hostname,
-          categoryId: defaultCategory.id,
-          published: true,
-          publishedAt: sourcePublishedAt,
-        })
-        .onConflictDoNothing({ target: postsTable.sourceUrl })
-        .returning({ id: postsTable.id });
-      if (created) imported += 1;
-      else skipped += 1;
-    }
+    const { imported, skipped } = await persistSitemapCandidates(candidates, {
+      offset,
+      insert: async (candidate, sourcePublishedAt, candidateIndex) => {
+        const [created] = await db
+          .insert(postsTable)
+          .values({
+            title: candidate.title,
+            slug: `${slugify(candidate.title)}-${Date.now().toString(36)}-${offset + candidateIndex}`,
+            thumbnailUrl: candidate.thumbnailUrl,
+            excerpt: `Imported listing from ${sitemapUrl.hostname}. Review and edit before republishing.`,
+            sourceUrl: candidate.url,
+            sourceDomain: sitemapUrl.hostname,
+            categoryId: defaultCategory.id,
+            published: true,
+            publishedAt: sourcePublishedAt,
+          })
+          .onConflictDoNothing({ target: postsTable.sourceUrl })
+          .returning({ id: postsTable.id });
+        return Boolean(created);
+      },
+    });
 
     await db
       .insert(importRunsTable)
       .values({ sourceUrl: sitemapUrl.toString(), imported, skipped });
 
     const processed = batchUrls.length;
-    const nextOffset =
-      offset + processed < postUrls.length ? offset + processed : null;
+    const nextOffset = getNextSitemapOffset(offset, processed, postUrls.length);
     res.json(
       ScrapeSitemapResponse.parse({
         sitemapUrl: sitemapUrl.toString(),
@@ -917,7 +834,10 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
       }),
     );
   } catch (error) {
-    req.log.warn({ err: error, sitemapUrl: sitemapUrl.toString() }, "Sitemap scrape failed");
+    req.log.warn(
+      { err: error, sitemapUrl: sitemapUrl.toString() },
+      "Sitemap scrape failed",
+    );
     res.status(400).json({
       error:
         error instanceof Error ? error.message : "Could not scrape sitemap",
@@ -940,7 +860,8 @@ router.post("/admin/import", async (req, res): Promise<void> => {
     source = parseExternalUrl(parsed.data.url);
   } catch (error) {
     res.status(400).json({
-      error: error instanceof Error ? error.message : "Please enter a valid URL",
+      error:
+        error instanceof Error ? error.message : "Please enter a valid URL",
     });
     return;
   }
@@ -986,12 +907,8 @@ router.post("/admin/import", async (req, res): Promise<void> => {
           /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
         ),
       ];
-      const headingMatch = block.match(
-        /<h[1-4]\b[^>]*>([\s\S]*?)<\/h[1-4]>/i,
-      );
-      const paragraphMatch = block.match(
-        /<p\b[^>]*>([\s\S]*?)<\/p>/i,
-      );
+      const headingMatch = block.match(/<h[1-4]\b[^>]*>([\s\S]*?)<\/h[1-4]>/i);
+      const paragraphMatch = block.match(/<p\b[^>]*>([\s\S]*?)<\/p>/i);
       const imageMatch = block.match(
         /<img\b[^>]*(?:src|data-src|data-lazy-src)=["']([^"']+)["'][^>]*>/i,
       );
@@ -1000,10 +917,7 @@ router.post("/admin/import", async (req, res): Promise<void> => {
       );
       const link = titledLink ?? linkMatches[0];
       const title = cleanText(
-        headingMatch?.[1] ??
-          paragraphMatch?.[1] ??
-          titledLink?.[2] ??
-          "",
+        headingMatch?.[1] ?? paragraphMatch?.[1] ?? titledLink?.[2] ?? "",
       );
       if (!link?.[1] || title.length < 4) return null;
       try {
@@ -1032,9 +946,7 @@ router.post("/admin/import", async (req, res): Promise<void> => {
   for (const [candidateIndex, candidate] of candidates.entries()) {
     // The source listing is newest-first. Preserve that order in our catalog
     // even when all items are imported during the same request.
-    const sourcePublishedAt = new Date(
-      importTimestamp - candidateIndex * 1000,
-    );
+    const sourcePublishedAt = new Date(importTimestamp - candidateIndex * 1000);
     const [existing] = await db
       .select({ id: postsTable.id })
       .from(postsTable)

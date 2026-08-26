@@ -7,6 +7,7 @@
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
+    "test": "esbuild src/lib/*.test.ts --bundle --platform=node --format=esm --outdir=/tmp/hdhub4u-api-tests && node --test /tmp/hdhub4u-api-tests/*.test.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
