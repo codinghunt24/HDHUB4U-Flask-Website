@@ -51,13 +51,13 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
           <div className="container mx-auto px-4">
             <div className="flex items-center gap-1 overflow-x-auto py-2 no-scrollbar">
               <Link href="/">
-                <Button variant="ghost" size="sm" className="whitespace-nowrap rounded-full">
+                <Button variant="ghost" size="sm" className="whitespace-nowrap rounded-full text-black hover:text-black">
                   All
                 </Button>
               </Link>
               {categories?.map((cat) => (
                 <Link key={cat.id} href={`/category/${cat.slug}`}>
-                  <Button variant="ghost" size="sm" className="whitespace-nowrap rounded-full text-gray-600 hover:text-gray-900">
+                  <Button variant="ghost" size="sm" className="whitespace-nowrap rounded-full text-black hover:text-black">
                     {cat.name}
                   </Button>
                 </Link>
