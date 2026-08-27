@@ -48,7 +48,44 @@ export const ListPostsResponse = zod.object({
   "slug": zod.string(),
   "postCount": zod.number()
 }),
-  "publishedAt": zod.coerce.date()
+  "publishedAt": zod.coerce.date(),
+  "tmdb": zod.object({
+  "id": zod.number(),
+  "mediaType": zod.enum(['movie', 'tv']),
+  "title": zod.string(),
+  "originalTitle": zod.string().nullable(),
+  "releaseDate": zod.string().nullable(),
+  "year": zod.number().nullable(),
+  "runtime": zod.number().nullable(),
+  "genres": zod.array(zod.string()),
+  "rating": zod.number().nullable(),
+  "voteCount": zod.number().nullable(),
+  "revenue": zod.number().nullable(),
+  "budget": zod.number().nullable(),
+  "posterUrl": zod.string().nullable(),
+  "backdropUrl": zod.string().nullable(),
+  "tagline": zod.string().nullable(),
+  "editorialSummary": zod.string(),
+  "director": zod.string().nullable(),
+  "cast": zod.array(zod.object({
+  "name": zod.string(),
+  "character": zod.string().nullable(),
+  "profileUrl": zod.string().nullable()
+})),
+  "trailerUrl": zod.string().nullable(),
+  "imdbId": zod.string().nullable(),
+  "keywords": zod.array(zod.string()),
+  "related": zod.array(zod.object({
+  "id": zod.number(),
+  "mediaType": zod.enum(['movie', 'tv']),
+  "title": zod.string(),
+  "year": zod.number().nullable(),
+  "posterUrl": zod.string().nullable()
+})),
+  "tmdbUrl": zod.string(),
+  "attribution": zod.string(),
+  "syncedAt": zod.coerce.date()
+}).optional()
 })),
   "page": zod.number(),
   "limit": zod.number(),
@@ -77,7 +114,44 @@ export const GetPostResponse = zod.object({
   "slug": zod.string(),
   "postCount": zod.number()
 }),
-  "publishedAt": zod.coerce.date()
+  "publishedAt": zod.coerce.date(),
+  "tmdb": zod.object({
+  "id": zod.number(),
+  "mediaType": zod.enum(['movie', 'tv']),
+  "title": zod.string(),
+  "originalTitle": zod.string().nullable(),
+  "releaseDate": zod.string().nullable(),
+  "year": zod.number().nullable(),
+  "runtime": zod.number().nullable(),
+  "genres": zod.array(zod.string()),
+  "rating": zod.number().nullable(),
+  "voteCount": zod.number().nullable(),
+  "revenue": zod.number().nullable(),
+  "budget": zod.number().nullable(),
+  "posterUrl": zod.string().nullable(),
+  "backdropUrl": zod.string().nullable(),
+  "tagline": zod.string().nullable(),
+  "editorialSummary": zod.string(),
+  "director": zod.string().nullable(),
+  "cast": zod.array(zod.object({
+  "name": zod.string(),
+  "character": zod.string().nullable(),
+  "profileUrl": zod.string().nullable()
+})),
+  "trailerUrl": zod.string().nullable(),
+  "imdbId": zod.string().nullable(),
+  "keywords": zod.array(zod.string()),
+  "related": zod.array(zod.object({
+  "id": zod.number(),
+  "mediaType": zod.enum(['movie', 'tv']),
+  "title": zod.string(),
+  "year": zod.number().nullable(),
+  "posterUrl": zod.string().nullable()
+})),
+  "tmdbUrl": zod.string(),
+  "attribution": zod.string(),
+  "syncedAt": zod.coerce.date()
+}).optional()
 })
 
 
@@ -175,7 +249,44 @@ export const ListAdminPostsResponseItem = zod.object({
   "slug": zod.string(),
   "postCount": zod.number()
 }),
-  "publishedAt": zod.coerce.date()
+  "publishedAt": zod.coerce.date(),
+  "tmdb": zod.object({
+  "id": zod.number(),
+  "mediaType": zod.enum(['movie', 'tv']),
+  "title": zod.string(),
+  "originalTitle": zod.string().nullable(),
+  "releaseDate": zod.string().nullable(),
+  "year": zod.number().nullable(),
+  "runtime": zod.number().nullable(),
+  "genres": zod.array(zod.string()),
+  "rating": zod.number().nullable(),
+  "voteCount": zod.number().nullable(),
+  "revenue": zod.number().nullable(),
+  "budget": zod.number().nullable(),
+  "posterUrl": zod.string().nullable(),
+  "backdropUrl": zod.string().nullable(),
+  "tagline": zod.string().nullable(),
+  "editorialSummary": zod.string(),
+  "director": zod.string().nullable(),
+  "cast": zod.array(zod.object({
+  "name": zod.string(),
+  "character": zod.string().nullable(),
+  "profileUrl": zod.string().nullable()
+})),
+  "trailerUrl": zod.string().nullable(),
+  "imdbId": zod.string().nullable(),
+  "keywords": zod.array(zod.string()),
+  "related": zod.array(zod.object({
+  "id": zod.number(),
+  "mediaType": zod.enum(['movie', 'tv']),
+  "title": zod.string(),
+  "year": zod.number().nullable(),
+  "posterUrl": zod.string().nullable()
+})),
+  "tmdbUrl": zod.string(),
+  "attribution": zod.string(),
+  "syncedAt": zod.coerce.date()
+}).optional()
 }).and(zod.object({
   "status": zod.enum(['published', 'draft']),
   "sourceDomain": zod.string(),
@@ -185,7 +296,10 @@ export const ListAdminPostsResponseItem = zod.object({
   "titleMatchStatus": zod.enum(['matched', 'review', 'unmatched', 'unavailable']),
   "titleMatchConfidence": zod.number().min(listAdminPostsResponseTwoTitleMatchConfidenceMin).max(listAdminPostsResponseTwoTitleMatchConfidenceMax).nullable(),
   "titleMatchType": zod.union([zod.literal('movie'),zod.literal('tv'),zod.literal(null)]).nullable(),
-  "titleMatchYear": zod.number().nullable()
+  "titleMatchYear": zod.number().nullable(),
+  "tmdbId": zod.number().nullable(),
+  "tmdbMediaType": zod.union([zod.literal('movie'),zod.literal('tv'),zod.literal(null)]).nullable(),
+  "tmdbEnrichmentStatus": zod.enum(['pending', 'ready', 'review', 'unmatched', 'unavailable', 'failed'])
 }))
 export const ListAdminPostsResponse = zod.array(ListAdminPostsResponseItem)
 
@@ -224,7 +338,44 @@ export const UpdateAdminPostResponse = zod.object({
   "slug": zod.string(),
   "postCount": zod.number()
 }),
-  "publishedAt": zod.coerce.date()
+  "publishedAt": zod.coerce.date(),
+  "tmdb": zod.object({
+  "id": zod.number(),
+  "mediaType": zod.enum(['movie', 'tv']),
+  "title": zod.string(),
+  "originalTitle": zod.string().nullable(),
+  "releaseDate": zod.string().nullable(),
+  "year": zod.number().nullable(),
+  "runtime": zod.number().nullable(),
+  "genres": zod.array(zod.string()),
+  "rating": zod.number().nullable(),
+  "voteCount": zod.number().nullable(),
+  "revenue": zod.number().nullable(),
+  "budget": zod.number().nullable(),
+  "posterUrl": zod.string().nullable(),
+  "backdropUrl": zod.string().nullable(),
+  "tagline": zod.string().nullable(),
+  "editorialSummary": zod.string(),
+  "director": zod.string().nullable(),
+  "cast": zod.array(zod.object({
+  "name": zod.string(),
+  "character": zod.string().nullable(),
+  "profileUrl": zod.string().nullable()
+})),
+  "trailerUrl": zod.string().nullable(),
+  "imdbId": zod.string().nullable(),
+  "keywords": zod.array(zod.string()),
+  "related": zod.array(zod.object({
+  "id": zod.number(),
+  "mediaType": zod.enum(['movie', 'tv']),
+  "title": zod.string(),
+  "year": zod.number().nullable(),
+  "posterUrl": zod.string().nullable()
+})),
+  "tmdbUrl": zod.string(),
+  "attribution": zod.string(),
+  "syncedAt": zod.coerce.date()
+}).optional()
 }).and(zod.object({
   "status": zod.enum(['published', 'draft']),
   "sourceDomain": zod.string(),
@@ -234,8 +385,34 @@ export const UpdateAdminPostResponse = zod.object({
   "titleMatchStatus": zod.enum(['matched', 'review', 'unmatched', 'unavailable']),
   "titleMatchConfidence": zod.number().min(updateAdminPostResponseTwoTitleMatchConfidenceMin).max(updateAdminPostResponseTwoTitleMatchConfidenceMax).nullable(),
   "titleMatchType": zod.union([zod.literal('movie'),zod.literal('tv'),zod.literal(null)]).nullable(),
-  "titleMatchYear": zod.number().nullable()
+  "titleMatchYear": zod.number().nullable(),
+  "tmdbId": zod.number().nullable(),
+  "tmdbMediaType": zod.union([zod.literal('movie'),zod.literal('tv'),zod.literal(null)]).nullable(),
+  "tmdbEnrichmentStatus": zod.enum(['pending', 'ready', 'review', 'unmatched', 'unavailable', 'failed'])
 }))
+
+
+/**
+ * @summary Enrich a controlled batch of posts with TMDB metadata
+ */
+export const enrichAdminTmdbPostsBodyLimitDefault = 10;
+export const enrichAdminTmdbPostsBodyLimitMax = 25;
+
+export const enrichAdminTmdbPostsBodyIncludeReviewedDefault = false;
+
+export const EnrichAdminTmdbPostsBody = zod.object({
+  "limit": zod.number().min(1).max(enrichAdminTmdbPostsBodyLimitMax).default(enrichAdminTmdbPostsBodyLimitDefault),
+  "includeReviewed": zod.boolean().default(enrichAdminTmdbPostsBodyIncludeReviewedDefault)
+})
+
+export const EnrichAdminTmdbPostsResponse = zod.object({
+  "attempted": zod.number(),
+  "enriched": zod.number(),
+  "review": zod.number(),
+  "unmatched": zod.number(),
+  "unavailable": zod.number(),
+  "failed": zod.number()
+})
 
 
 /**
@@ -267,7 +444,44 @@ export const ImportPostsResponse = zod.object({
   "slug": zod.string(),
   "postCount": zod.number()
 }),
-  "publishedAt": zod.coerce.date()
+  "publishedAt": zod.coerce.date(),
+  "tmdb": zod.object({
+  "id": zod.number(),
+  "mediaType": zod.enum(['movie', 'tv']),
+  "title": zod.string(),
+  "originalTitle": zod.string().nullable(),
+  "releaseDate": zod.string().nullable(),
+  "year": zod.number().nullable(),
+  "runtime": zod.number().nullable(),
+  "genres": zod.array(zod.string()),
+  "rating": zod.number().nullable(),
+  "voteCount": zod.number().nullable(),
+  "revenue": zod.number().nullable(),
+  "budget": zod.number().nullable(),
+  "posterUrl": zod.string().nullable(),
+  "backdropUrl": zod.string().nullable(),
+  "tagline": zod.string().nullable(),
+  "editorialSummary": zod.string(),
+  "director": zod.string().nullable(),
+  "cast": zod.array(zod.object({
+  "name": zod.string(),
+  "character": zod.string().nullable(),
+  "profileUrl": zod.string().nullable()
+})),
+  "trailerUrl": zod.string().nullable(),
+  "imdbId": zod.string().nullable(),
+  "keywords": zod.array(zod.string()),
+  "related": zod.array(zod.object({
+  "id": zod.number(),
+  "mediaType": zod.enum(['movie', 'tv']),
+  "title": zod.string(),
+  "year": zod.number().nullable(),
+  "posterUrl": zod.string().nullable()
+})),
+  "tmdbUrl": zod.string(),
+  "attribution": zod.string(),
+  "syncedAt": zod.coerce.date()
+}).optional()
 }).and(zod.object({
   "status": zod.enum(['published', 'draft']),
   "sourceDomain": zod.string(),
@@ -277,7 +491,10 @@ export const ImportPostsResponse = zod.object({
   "titleMatchStatus": zod.enum(['matched', 'review', 'unmatched', 'unavailable']),
   "titleMatchConfidence": zod.number().min(importPostsResponseItemsItemTwoTitleMatchConfidenceMin).max(importPostsResponseItemsItemTwoTitleMatchConfidenceMax).nullable(),
   "titleMatchType": zod.union([zod.literal('movie'),zod.literal('tv'),zod.literal(null)]).nullable(),
-  "titleMatchYear": zod.number().nullable()
+  "titleMatchYear": zod.number().nullable(),
+  "tmdbId": zod.number().nullable(),
+  "tmdbMediaType": zod.union([zod.literal('movie'),zod.literal('tv'),zod.literal(null)]).nullable(),
+  "tmdbEnrichmentStatus": zod.enum(['pending', 'ready', 'review', 'unmatched', 'unavailable', 'failed'])
 })))
 })
 

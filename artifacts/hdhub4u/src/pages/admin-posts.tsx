@@ -1,4 +1,4 @@
-import { useListAdminPosts, useUpdateAdminPost } from "@workspace/api-client-react";
+import { useListAdminPosts, useUpdateAdminPost, useEnrichAdminTmdbPosts, getListAdminPostsQueryKey } from "@workspace/api-client-react";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Check, X, ExternalLink, Globe, Pencil } from "lucide-react";
+import { Check, X, ExternalLink, Globe, Pencil, Sparkles, RefreshCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -29,8 +29,10 @@ type EditablePost = {
 export default function AdminPosts() {
   const { data: posts, isLoading } = useListAdminPosts({ status: 'all' });
   const updatePost = useUpdateAdminPost();
+  const enrichMutation = useEnrichAdminTmdbPosts();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
   const [editingPost, setEditingPost] = useState<EditablePost | null>(null);
   const [editedTitle, setEditedTitle] = useState("");
 
@@ -38,9 +40,29 @@ export default function AdminPosts() {
     updatePost.mutate({ id, data: { status } }, {
       onSuccess: () => {
         toast({ title: "Post updated", description: `Status changed to ${status}.` });
-        queryClient.invalidateQueries({ queryKey: ["/api/admin/posts"] });
+        queryClient.invalidateQueries({ queryKey: getListAdminPostsQueryKey() });
         queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
         queryClient.invalidateQueries({ queryKey: ["/api/admin/summary"] });
+      }
+    });
+  };
+
+  const handleEnrich = () => {
+    enrichMutation.mutate({ data: { limit: 10, includeReviewed: false } }, {
+      onSuccess: (res) => {
+        toast({ 
+          title: "Enrichment complete", 
+          description: `Attempted: ${res.attempted} | Enriched: ${res.enriched} | Failed: ${res.failed} | Unmatched: ${res.unmatched}` 
+        });
+        queryClient.invalidateQueries({ queryKey: getListAdminPostsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      },
+      onError: () => {
+        toast({
+          title: "Enrichment failed",
+          description: "An error occurred while contacting TMDB.",
+          variant: "destructive",
+        });
       }
     });
   };
@@ -60,7 +82,7 @@ export default function AdminPosts() {
             title: "Title saved",
             description: "This manual title will not be overwritten by imports.",
           });
-          queryClient.invalidateQueries({ queryKey: ["/api/admin/posts"] });
+          queryClient.invalidateQueries({ queryKey: getListAdminPostsQueryKey() });
           queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
           setEditingPost(null);
         },
@@ -82,7 +104,7 @@ export default function AdminPosts() {
     if (post.titleMatchStatus === "matched") {
       return (
         <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-          TMDB matched {post.titleMatchConfidence ?? 0}%
+          Matched {post.titleMatchConfidence ?? 0}%
         </Badge>
       );
     }
@@ -101,19 +123,33 @@ export default function AdminPosts() {
 
   return (
     <AdminLayout>
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-display font-bold text-gray-900 mb-2">Posts Moderation</h1>
-          <p className="text-muted-foreground">Review detected names, correct uncertain matches, and manage visibility.</p>
+          <h1 className="text-3xl font-display font-bold text-foreground mb-2">Posts Moderation</h1>
+          <p className="text-muted-foreground">Review detected names, enrich with TMDB, and manage visibility.</p>
         </div>
+        
+        <Button 
+          onClick={handleEnrich} 
+          disabled={enrichMutation.isPending}
+          className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+        >
+          {enrichMutation.isPending ? (
+            <RefreshCcw className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Sparkles className="w-4 h-4 mr-2" />
+          )}
+          Enrich via TMDB
+        </Button>
       </div>
 
-      <Card className="border-0 shadow-sm rounded-2xl overflow-hidden bg-white">
+      <Card className="border-0 shadow-sm rounded-2xl overflow-hidden bg-card">
         <Table>
-          <TableHeader className="bg-gray-50/50">
+          <TableHeader className="bg-secondary/30">
             <TableRow>
               <TableHead>Title detection</TableHead>
               <TableHead>Category</TableHead>
+              <TableHead>TMDB</TableHead>
               <TableHead>Source</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -125,6 +161,7 @@ export default function AdminPosts() {
                 <TableRow key={i}>
                   <TableCell><Skeleton className="h-5 w-48" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                   <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                   <TableCell><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
@@ -132,28 +169,28 @@ export default function AdminPosts() {
               ))
             ) : posts?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-12 text-gray-500">
+                <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
                   No posts found. Use the Import tool to fetch content.
                 </TableCell>
               </TableRow>
             ) : (
               posts?.map((post) => (
                 <TableRow key={post.id} className="group">
-                  <TableCell className="max-w-[420px]">
+                  <TableCell className="max-w-[380px]">
                     <div className="space-y-1.5">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium text-gray-900">{post.title}</span>
+                        <span className="font-medium text-foreground">{post.title}</span>
                         {matchBadge(post)}
                       </div>
                       {post.detectedTitle && post.detectedTitle !== post.title && (
-                        <p className="text-xs text-orange-700">
+                        <p className="text-xs text-amber-700 dark:text-amber-500">
                           Suggested: {post.detectedTitle}
                           {post.titleMatchYear ? ` (${post.titleMatchYear})` : ""}
                           {post.titleMatchType ? ` · ${post.titleMatchType === "tv" ? "TV" : "Movie"}` : ""}
                         </p>
                       )}
                       {post.sourceTitle && (
-                        <p className="truncate text-xs text-gray-400" title={post.sourceTitle}>
+                        <p className="truncate text-xs text-muted-foreground" title={post.sourceTitle}>
                           Original: {post.sourceTitle}
                         </p>
                       )}
@@ -163,16 +200,43 @@ export default function AdminPosts() {
                     <Badge variant="outline" className="font-normal">{post.category.name}</Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center text-gray-500 text-sm">
+                    {post.tmdbEnrichmentStatus === 'ready' ? (
+                      <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-0 flex items-center gap-1 w-fit dark:bg-emerald-900/30 dark:text-emerald-400">
+                        <Check className="w-3 h-3" /> Enriched
+                      </Badge>
+                    ) : post.tmdbEnrichmentStatus === 'pending' ? (
+                      <Badge variant="outline" className="text-slate-500 bg-slate-50 border-slate-200 flex items-center gap-1 w-fit dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300">
+                        <RefreshCcw className="w-3 h-3" /> Pending
+                      </Badge>
+                    ) : post.tmdbEnrichmentStatus === 'review' ? (
+                      <Badge variant="outline" className="text-amber-600 bg-amber-50 border-amber-200 flex items-center gap-1 w-fit dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-400">
+                        Review
+                      </Badge>
+                    ) : post.tmdbEnrichmentStatus === 'unmatched' ? (
+                      <Badge variant="outline" className="text-rose-600 bg-rose-50 border-rose-200 flex items-center gap-1 w-fit dark:bg-rose-900/30 dark:border-rose-800 dark:text-rose-400">
+                        Unmatched
+                      </Badge>
+                    ) : post.tmdbEnrichmentStatus === 'failed' ? (
+                      <Badge variant="outline" className="text-red-600 bg-red-50 border-red-200 flex items-center gap-1 w-fit dark:bg-red-900/30 dark:border-red-800 dark:text-red-400">
+                        Failed
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-slate-500 flex items-center gap-1 w-fit dark:text-slate-400">
+                        Unavailable
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center text-muted-foreground text-sm">
                       <Globe className="w-3 h-3 mr-1.5" />
                       {post.sourceDomain}
                     </div>
                   </TableCell>
                   <TableCell>
                     {post.status === 'published' ? (
-                      <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-0 font-medium">Published</Badge>
+                      <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-0 font-medium dark:bg-emerald-900/30 dark:text-emerald-400">Published</Badge>
                     ) : (
-                      <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-0 font-medium">Draft</Badge>
+                      <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-0 font-medium dark:bg-amber-900/30 dark:text-amber-400">Draft</Badge>
                     )}
                   </TableCell>
                   <TableCell className="text-right">
@@ -180,7 +244,7 @@ export default function AdminPosts() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-gray-400 hover:text-gray-900"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
                         onClick={() => openTitleEditor(post)}
                         aria-label={`Edit title for ${post.title}`}
                       >
@@ -188,7 +252,7 @@ export default function AdminPosts() {
                       </Button>
                       {post.sourceUrl && (
                         <a href={post.sourceUrl} target="_blank" rel="noopener noreferrer">
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-900">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
                             <ExternalLink className="w-4 h-4" />
                           </Button>
                         </a>
@@ -197,7 +261,7 @@ export default function AdminPosts() {
                         <Button 
                           size="sm" 
                           variant="outline"
-                          className="h-8 border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                          className="h-8 border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-900/30"
                           onClick={() => handleStatusChange(post.id, 'published')}
                           disabled={updatePost.isPending}
                         >
@@ -207,7 +271,7 @@ export default function AdminPosts() {
                         <Button 
                           size="sm" 
                           variant="outline"
-                          className="h-8 border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800"
+                          className="h-8 border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-900/30"
                           onClick={() => handleStatusChange(post.id, 'draft')}
                           disabled={updatePost.isPending}
                         >
@@ -238,19 +302,19 @@ export default function AdminPosts() {
           </DialogHeader>
           <div className="space-y-4">
             {editingPost?.sourceTitle && (
-              <div className="rounded-lg bg-slate-50 p-3">
-                <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">Original scraped title</p>
-                <p className="text-sm text-slate-700">{editingPost.sourceTitle}</p>
+              <div className="rounded-lg bg-secondary/50 p-3">
+                <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Original scraped title</p>
+                <p className="text-sm text-foreground">{editingPost.sourceTitle}</p>
               </div>
             )}
             {editingPost?.detectedTitle && (
               <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Detected name</p>
-                <p className="mt-1 text-sm font-medium text-slate-900">{editingPost.detectedTitle}</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Detected name</p>
+                <p className="mt-1 text-sm font-medium text-foreground">{editingPost.detectedTitle}</p>
               </div>
             )}
             <div>
-              <label htmlFor="reviewed-title" className="mb-2 block text-sm font-medium text-slate-800">
+              <label htmlFor="reviewed-title" className="mb-2 block text-sm font-medium text-foreground">
                 Final public title
               </label>
               <Input

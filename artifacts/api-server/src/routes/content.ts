@@ -9,6 +9,8 @@ import {
   AdminLogoutResponse,
   DiscoverSitemapsBody,
   DiscoverSitemapsResponse,
+  EnrichAdminTmdbPostsBody,
+  EnrichAdminTmdbPostsResponse,
   GetAdminSessionResponse,
   GetAdminSettingsResponse,
   GetAdminTmdbApiKeyResponse,
@@ -43,7 +45,16 @@ import {
   postsTable,
   settingsTable,
 } from "@workspace/db";
-import { and, count, desc, eq, ilike, max, or, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  ilike,
+  max,
+  or,
+  sql,
+} from "drizzle-orm";
 import {
   SITEMAP_BATCH_SIZE,
   extractXmlLocations,
@@ -56,6 +67,7 @@ import {
   resolvePublicDestination,
   type SitemapCandidate,
 } from "../lib/sitemap-import";
+import { getCandidateResolutionUpdate } from "../lib/tmdb-import-update";
 import {
   getImportedTitleUpdate,
   parseScrapedTitle,
@@ -76,6 +88,9 @@ import {
   createTmdbTitleResolver,
   type ResolvedTitle,
 } from "../lib/tmdb-title-resolver";
+import {
+  fetchTmdbCatalogMetadata,
+} from "../lib/tmdb-metadata";
 
 const router: IRouter = Router();
 const SESSION_COOKIE = "hdhub4u_admin";
@@ -84,6 +99,13 @@ const DEFAULT_CATEGORY = {
   name: "Latest",
   slug: "latest",
 } as const;
+type TmdbEnrichmentStatus =
+  | "pending"
+  | "ready"
+  | "review"
+  | "unmatched"
+  | "unavailable"
+  | "failed";
 
 const getOrCreateDefaultCategory = async () => {
   const [existing] = await db
@@ -335,7 +357,18 @@ const getConfiguredTmdbApiKey = async () => {
 const getResolvedTitleFields = (
   parsedTitle: ParsedScrapedTitle,
   resolution: ResolvedTitle,
-) => ({
+): {
+  title: string;
+  sourceTitle: string;
+  detectedTitle: string;
+  titleMatchStatus: ResolvedTitle["status"];
+  titleMatchConfidence: number;
+  titleMatchType: "movie" | "tv" | null;
+  titleMatchYear: number | null;
+  tmdbId: number | null;
+  tmdbMediaType: "movie" | "tv" | null;
+  tmdbEnrichmentStatus: TmdbEnrichmentStatus;
+} => ({
   title: resolution.displayTitle,
   sourceTitle: parsedTitle.sourceTitle,
   detectedTitle: resolution.detectedTitle,
@@ -344,11 +377,66 @@ const getResolvedTitleFields = (
   titleMatchType:
     resolution.mediaType === "unknown" ? null : resolution.mediaType,
   titleMatchYear: resolution.year,
+  tmdbId: resolution.tmdbId,
+  tmdbMediaType:
+    resolution.tmdbId && resolution.mediaType !== "unknown"
+      ? resolution.mediaType
+      : null,
+  tmdbEnrichmentStatus:
+    (resolution.status === "matched" ? "pending" : resolution.status) as TmdbEnrichmentStatus,
+});
+
+const resolvePostTmdb = async (
+  parsedTitle: ParsedScrapedTitle,
+  resolveTitle: (parsedTitle: ParsedScrapedTitle) => Promise<ResolvedTitle>,
+  apiKey: string | null,
+) => {
+  const resolution = await resolveTitle(parsedTitle);
+  const fields = getResolvedTitleFields(parsedTitle, resolution);
+  if (
+    !apiKey ||
+    resolution.status !== "matched" ||
+    !resolution.tmdbId ||
+    (resolution.mediaType !== "movie" && resolution.mediaType !== "tv")
+  ) {
+    return { ...fields, tmdbMetadata: null, tmdbEnrichedAt: null };
+  }
+  try {
+    const metadata = await fetchTmdbCatalogMetadata(
+      resolution.tmdbId,
+      resolution.mediaType,
+      apiKey,
+    );
+    return {
+      ...fields,
+      tmdbId: metadata.id,
+      tmdbMediaType: metadata.mediaType,
+      tmdbMetadata: metadata as unknown as Record<string, unknown>,
+      tmdbEnrichmentStatus: "ready" as const,
+      tmdbEnrichedAt: new Date(),
+    };
+  } catch {
+    return {
+      ...fields,
+      tmdbEnrichmentStatus: "failed" as const,
+      tmdbMetadata: null,
+      tmdbEnrichedAt: null,
+    };
+  }
+};
+
+const getTmdbPersistenceFields = (candidate: SitemapCandidate) => ({
+  tmdbId: candidate.tmdbId ?? null,
+  tmdbMediaType: candidate.tmdbMediaType ?? null,
+  tmdbMetadata: candidate.tmdbMetadata ?? null,
+  tmdbEnrichmentStatus: candidate.tmdbEnrichmentStatus ?? "pending",
+  tmdbEnrichedAt: candidate.tmdbEnrichedAt ?? null,
 });
 
 const parsePostPage = async (
   url: URL,
   resolveTitle: (parsedTitle: ParsedScrapedTitle) => Promise<ResolvedTitle>,
+  apiKey: string | null,
 ) => {
   const html = await fetchSourceText(url);
   const sourceTitle = cleanText(
@@ -380,9 +468,8 @@ const parsePostPage = async (
     sourceTitle || cleanText(fallbackTitle),
     url,
   );
-  const resolution = await resolveTitle(parsedTitle);
   return {
-    ...getResolvedTitleFields(parsedTitle, resolution),
+    ...(await resolvePostTmdb(parsedTitle, resolveTitle, apiKey)),
     thumbnailUrl: image
       ? new URL(image, url).toString()
       : "/editorial-streaming.jpg",
@@ -432,6 +519,10 @@ const postShape = (row: {
   titleMatchConfidence: number | null;
   titleMatchType: string | null;
   titleMatchYear: number | null;
+  tmdbId: number | null;
+  tmdbMediaType: string | null;
+  tmdbMetadata: Record<string, unknown> | null;
+  tmdbEnrichmentStatus: string;
   slug: string;
   thumbnailUrl: string;
   excerpt: string;
@@ -461,6 +552,7 @@ const postShape = (row: {
       Number(row.categoryPostCount),
     ),
     publishedAt: row.publishedAt,
+    ...(row.tmdbMetadata ? { tmdb: row.tmdbMetadata } : {}),
   };
 };
 
@@ -480,6 +572,9 @@ const adminPostShape = (
   titleMatchConfidence: row.titleMatchConfidence,
   titleMatchType: row.titleMatchType,
   titleMatchYear: row.titleMatchYear,
+  tmdbId: row.tmdbId,
+  tmdbMediaType: row.tmdbMediaType,
+  tmdbEnrichmentStatus: row.tmdbEnrichmentStatus,
 });
 
 const postSelection = {
@@ -492,6 +587,10 @@ const postSelection = {
   titleMatchConfidence: postsTable.titleMatchConfidence,
   titleMatchType: postsTable.titleMatchType,
   titleMatchYear: postsTable.titleMatchYear,
+  tmdbId: postsTable.tmdbId,
+  tmdbMediaType: postsTable.tmdbMediaType,
+  tmdbMetadata: postsTable.tmdbMetadata,
+  tmdbEnrichmentStatus: postsTable.tmdbEnrichmentStatus,
   slug: postsTable.slug,
   thumbnailUrl: postsTable.thumbnailUrl,
   excerpt: postsTable.excerpt,
@@ -790,6 +889,109 @@ router.patch("/admin/posts/:id", async (req, res): Promise<void> => {
   );
 });
 
+router.post("/admin/tmdb/enrich", async (req, res): Promise<void> => {
+  if (!(await requireAdmin(req))) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const parsed = EnrichAdminTmdbPostsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const apiKey = await getConfiguredTmdbApiKey();
+  if (!apiKey) {
+    res.status(400).json({ error: "TMDB API key is not configured" });
+    return;
+  }
+
+  const limit = Math.min(25, Math.max(1, Math.floor(parsed.data.limit ?? 10)));
+  const candidates = await db
+    .select({
+      id: postsTable.id,
+      title: postsTable.title,
+      titleSource: postsTable.titleSource,
+      sourceTitle: postsTable.sourceTitle,
+      sourceUrl: postsTable.sourceUrl,
+      titleMatchStatus: postsTable.titleMatchStatus,
+    })
+    .from(postsTable)
+    .where(
+      parsed.data.includeReviewed
+        ? or(
+            eq(postsTable.tmdbEnrichmentStatus, "pending"),
+            eq(postsTable.tmdbEnrichmentStatus, "failed"),
+            eq(postsTable.tmdbEnrichmentStatus, "unavailable"),
+            eq(postsTable.tmdbEnrichmentStatus, "review"),
+          )
+        : or(
+            eq(postsTable.tmdbEnrichmentStatus, "pending"),
+            eq(postsTable.tmdbEnrichmentStatus, "failed"),
+            eq(postsTable.tmdbEnrichmentStatus, "unavailable"),
+          ),
+    )
+    .orderBy(
+      sql`case when ${postsTable.tmdbEnrichmentStatus} = 'pending' then 0 else 1 end`,
+      desc(postsTable.publishedAt),
+    )
+    .limit(limit);
+  const resolveTitle = createTmdbTitleResolver(apiKey, limit);
+  const results = {
+    attempted: 0,
+    enriched: 0,
+    review: 0,
+    unmatched: 0,
+    unavailable: 0,
+    failed: 0,
+  };
+
+  for (const candidate of candidates) {
+    results.attempted += 1;
+    try {
+      const fields = await resolvePostTmdb(
+        parseScrapedTitle(
+          candidate.sourceTitle ?? candidate.title,
+          candidate.sourceUrl ?? undefined,
+        ),
+        resolveTitle,
+        apiKey,
+      );
+      const { title, ...matchFields } = fields;
+      const attemptedAt =
+        fields.tmdbEnrichmentStatus === "ready" ? fields.tmdbEnrichedAt : new Date();
+      await db
+        .update(postsTable)
+        .set({
+          ...matchFields,
+          tmdbEnrichedAt: attemptedAt,
+          ...(candidate.titleSource === "auto" ? { title } : {}),
+        })
+        .where(eq(postsTable.id, candidate.id));
+
+      if (fields.tmdbEnrichmentStatus === "ready") results.enriched += 1;
+      else if (fields.tmdbEnrichmentStatus === "review") results.review += 1;
+      else if (fields.tmdbEnrichmentStatus === "unmatched") results.unmatched += 1;
+      else if (fields.tmdbEnrichmentStatus === "unavailable") {
+        results.unavailable += 1;
+      } else {
+        results.failed += 1;
+      }
+    } catch (error) {
+      req.log.warn(
+        { err: error, postId: candidate.id },
+        "TMDB enrichment failed for post",
+      );
+      await db
+        .update(postsTable)
+        .set({ tmdbEnrichmentStatus: "failed", tmdbEnrichedAt: new Date() })
+        .where(eq(postsTable.id, candidate.id));
+      results.failed += 1;
+    }
+  }
+
+  res.json(EnrichAdminTmdbPostsResponse.parse(results));
+});
+
 router.post("/admin/sitemaps/discover", async (req, res): Promise<void> => {
   if (!(await requireAdmin(req))) {
     res.status(401).json({ error: "Unauthorized" });
@@ -868,9 +1070,8 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
   const offset = Math.max(0, Math.floor(parsed.data.offset));
 
   try {
-    const resolveTitle = createTmdbTitleResolver(
-      await getConfiguredTmdbApiKey(),
-    );
+    const tmdbApiKey = await getConfiguredTmdbApiKey();
+    const resolveTitle = createTmdbTitleResolver(tmdbApiKey);
     const sitemapXml = await fetchSourceText(sitemapUrl);
     const sitemapEntries = getUniqueSitemapEntries(
       sitemapXml,
@@ -900,7 +1101,11 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
             return {
               url: entry.url,
               publishedAt: entry.lastmod,
-              ...(await parsePostPage(parsedPostUrl, resolveTitle)),
+               ...(await parsePostPage(
+                 parsedPostUrl,
+                 resolveTitle,
+                 tmdbApiKey,
+               )),
             };
           } catch (error) {
             req.log.warn(
@@ -949,6 +1154,7 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
                 ? null
                 : candidate.titleMatchType ?? null,
             titleMatchYear: candidate.titleMatchYear ?? null,
+            ...getTmdbPersistenceFields(candidate),
             slug: `${slugify(candidate.title)}-${Date.now().toString(36)}-${offset + candidateIndex}`,
             thumbnailUrl: candidate.thumbnailUrl,
             excerpt: buildImportedExcerpt(candidate.title),
@@ -965,6 +1171,7 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
           .select({
             titleSource: postsTable.titleSource,
             sourceTitle: postsTable.sourceTitle,
+            tmdbEnrichmentStatus: postsTable.tmdbEnrichmentStatus,
           })
           .from(postsTable)
           .where(eq(postsTable.sourceUrl, candidate.url));
@@ -977,6 +1184,11 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
           titleMatchConfidence?: number | null;
           titleMatchType?: string | null;
           titleMatchYear?: number | null;
+          tmdbId?: number | null;
+          tmdbMediaType?: string | null;
+          tmdbMetadata?: Record<string, unknown> | null;
+          tmdbEnrichmentStatus?: string;
+          tmdbEnrichedAt?: Date | null;
         } = {};
         if (candidate.publishedAt) {
           duplicateUpdate.publishedAt = sourcePublishedAt;
@@ -987,16 +1199,13 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
             getImportedTitleUpdate(existing.titleSource, candidate.title),
           );
         }
-        Object.assign(duplicateUpdate, {
-          detectedTitle: candidate.detectedTitle ?? null,
-          titleMatchStatus: candidate.titleMatchStatus ?? "unmatched",
-          titleMatchConfidence: candidate.titleMatchConfidence ?? null,
-          titleMatchType:
-            candidate.titleMatchType === "unknown"
-              ? null
-              : candidate.titleMatchType ?? null,
-          titleMatchYear: candidate.titleMatchYear ?? null,
-        });
+        Object.assign(
+          duplicateUpdate,
+          getCandidateResolutionUpdate(
+            candidate,
+            existing?.tmdbEnrichmentStatus,
+          ),
+        );
         if (!existing?.sourceTitle && candidate.sourceTitle) {
           duplicateUpdate.sourceTitle = candidate.sourceTitle;
         }
@@ -1140,9 +1349,8 @@ router.post("/admin/import", async (req, res): Promise<void> => {
       } =>
         Boolean(candidate),
     );
-  const resolveTitle = createTmdbTitleResolver(
-    await getConfiguredTmdbApiKey(),
-  );
+  const tmdbApiKey = await getConfiguredTmdbApiKey();
+  const resolveTitle = createTmdbTitleResolver(tmdbApiKey);
   const candidates: SitemapCandidate[] = [];
   for (
     let index = 0;
@@ -1155,10 +1363,11 @@ router.post("/admin/import", async (req, res): Promise<void> => {
         .map(async (candidate) => ({
           url: candidate.url,
           thumbnailUrl: candidate.thumbnailUrl,
-          ...getResolvedTitleFields(
+          ...(await resolvePostTmdb(
             candidate.parsedTitle,
-            await resolveTitle(candidate.parsedTitle),
-          ),
+            resolveTitle,
+            tmdbApiKey,
+          )),
         })),
     );
     candidates.push(...resolvedBatch);
@@ -1187,6 +1396,7 @@ router.post("/admin/import", async (req, res): Promise<void> => {
         id: postsTable.id,
         titleSource: postsTable.titleSource,
         sourceTitle: postsTable.sourceTitle,
+          tmdbEnrichmentStatus: postsTable.tmdbEnrichmentStatus,
       })
       .from(postsTable)
       .where(eq(postsTable.sourceUrl, candidate.url));
@@ -1196,14 +1406,10 @@ router.post("/admin/import", async (req, res): Promise<void> => {
         .set({
           publishedAt: sourcePublishedAt,
           ...getImportedTitleUpdate(existing.titleSource, candidate.title),
-          detectedTitle: candidate.detectedTitle ?? null,
-          titleMatchStatus: candidate.titleMatchStatus ?? "unmatched",
-          titleMatchConfidence: candidate.titleMatchConfidence ?? null,
-          titleMatchType:
-            candidate.titleMatchType === "unknown"
-              ? null
-              : candidate.titleMatchType ?? null,
-          titleMatchYear: candidate.titleMatchYear ?? null,
+          ...getCandidateResolutionUpdate(
+            candidate,
+            existing.tmdbEnrichmentStatus,
+          ),
           ...(!existing.sourceTitle && candidate.sourceTitle
             ? { sourceTitle: candidate.sourceTitle }
             : {}),
@@ -1227,6 +1433,7 @@ router.post("/admin/import", async (req, res): Promise<void> => {
             ? null
             : candidate.titleMatchType ?? null,
         titleMatchYear: candidate.titleMatchYear ?? null,
+        ...getTmdbPersistenceFields(candidate),
         slug: uniqueSlug,
         thumbnailUrl: candidate.thumbnailUrl,
         excerpt: buildImportedExcerpt(candidate.title),

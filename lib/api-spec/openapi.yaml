@@ -224,6 +224,28 @@ paths:
                 $ref: "#/components/schemas/AdminPost"
         "401":
           description: Unauthorized
+  /admin/tmdb/enrich:
+    post:
+      operationId: enrichAdminTmdbPosts
+      tags: [admin]
+      summary: Enrich a controlled batch of posts with TMDB metadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TmdbEnrichmentInput"
+      responses:
+        "200":
+          description: Enrichment batch result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TmdbEnrichmentResult"
+        "400":
+          description: TMDB key is unavailable or request is invalid
+        "401":
+          description: Unauthorized
   /admin/import:
     post:
       operationId: importPosts
@@ -415,6 +437,8 @@ components:
         category:
           $ref: "#/components/schemas/Category"
         publishedAt: { type: string, format: date-time }
+        tmdb:
+          $ref: "#/components/schemas/TmdbMetadata"
     AdminPost:
       allOf:
         - $ref: "#/components/schemas/Post"
@@ -430,6 +454,9 @@ components:
               titleMatchConfidence,
               titleMatchType,
               titleMatchYear,
+              tmdbId,
+              tmdbMediaType,
+              tmdbEnrichmentStatus,
             ]
           properties:
             status:
@@ -453,6 +480,111 @@ components:
               enum: [movie, tv, null]
             titleMatchYear:
               type: ["number", "null"]
+            tmdbId:
+              type: ["number", "null"]
+            tmdbMediaType:
+              type: ["string", "null"]
+              enum: [movie, tv, null]
+            tmdbEnrichmentStatus:
+              type: string
+              enum: [pending, ready, review, unmatched, unavailable, failed]
+    TmdbCastMember:
+      type: object
+      required: [name, character, profileUrl]
+      properties:
+        name: { type: string }
+        character: { type: ["string", "null"] }
+        profileUrl: { type: ["string", "null"] }
+    TmdbRelatedTitle:
+      type: object
+      required: [id, mediaType, title, year, posterUrl]
+      properties:
+        id: { type: number }
+        mediaType: { type: string, enum: [movie, tv] }
+        title: { type: string }
+        year: { type: ["number", "null"] }
+        posterUrl: { type: ["string", "null"] }
+    TmdbMetadata:
+      type: object
+      required:
+        [
+          id,
+          mediaType,
+          title,
+          originalTitle,
+          releaseDate,
+          year,
+          runtime,
+          genres,
+          rating,
+          voteCount,
+          revenue,
+          budget,
+          posterUrl,
+          backdropUrl,
+          tagline,
+          editorialSummary,
+          director,
+          cast,
+          trailerUrl,
+          imdbId,
+          keywords,
+          related,
+          tmdbUrl,
+          attribution,
+          syncedAt,
+        ]
+      properties:
+        id: { type: number }
+        mediaType: { type: string, enum: [movie, tv] }
+        title: { type: string }
+        originalTitle: { type: ["string", "null"] }
+        releaseDate: { type: ["string", "null"] }
+        year: { type: ["number", "null"] }
+        runtime: { type: ["number", "null"] }
+        genres:
+          type: array
+          items: { type: string }
+        rating: { type: ["number", "null"] }
+        voteCount: { type: ["number", "null"] }
+        revenue: { type: ["number", "null"] }
+        budget: { type: ["number", "null"] }
+        posterUrl: { type: ["string", "null"] }
+        backdropUrl: { type: ["string", "null"] }
+        tagline: { type: ["string", "null"] }
+        editorialSummary: { type: string }
+        director: { type: ["string", "null"] }
+        cast:
+          type: array
+          items:
+            $ref: "#/components/schemas/TmdbCastMember"
+        trailerUrl: { type: ["string", "null"] }
+        imdbId: { type: ["string", "null"] }
+        keywords:
+          type: array
+          items: { type: string }
+        related:
+          type: array
+          items:
+            $ref: "#/components/schemas/TmdbRelatedTitle"
+        tmdbUrl: { type: string }
+        attribution: { type: string }
+        syncedAt: { type: string, format: date-time }
+    TmdbEnrichmentInput:
+      type: object
+      properties:
+        limit: { type: number, minimum: 1, maximum: 25, default: 10 }
+        includeReviewed: { type: boolean, default: false }
+    TmdbEnrichmentResult:
+      type: object
+      required: [attempted, enriched, review, unmatched, unavailable, failed]
+      properties:
+        attempted: { type: number }
+        enriched: { type: number }
+        review: { type: number }
+        unmatched: { type: number }
+        unavailable: { type: number }
+        failed: { type: number }
     PostList:
       type: object
       required: [items, page, limit, total, totalPages]

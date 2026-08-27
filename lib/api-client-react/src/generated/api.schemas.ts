@@ -16,6 +16,82 @@ export interface Category {
   postCount: number;
 }
 
+export type TmdbMetadataMediaType = typeof TmdbMetadataMediaType[keyof typeof TmdbMetadataMediaType];
+
+
+export const TmdbMetadataMediaType = {
+  movie: 'movie',
+  tv: 'tv',
+} as const;
+
+export interface TmdbCastMember {
+  name: string;
+  /** @nullable */
+  character: string | null;
+  /** @nullable */
+  profileUrl: string | null;
+}
+
+export type TmdbRelatedTitleMediaType = typeof TmdbRelatedTitleMediaType[keyof typeof TmdbRelatedTitleMediaType];
+
+
+export const TmdbRelatedTitleMediaType = {
+  movie: 'movie',
+  tv: 'tv',
+} as const;
+
+export interface TmdbRelatedTitle {
+  id: number;
+  mediaType: TmdbRelatedTitleMediaType;
+  title: string;
+  /** @nullable */
+  year: number | null;
+  /** @nullable */
+  posterUrl: string | null;
+}
+
+export interface TmdbMetadata {
+  id: number;
+  mediaType: TmdbMetadataMediaType;
+  title: string;
+  /** @nullable */
+  originalTitle: string | null;
+  /** @nullable */
+  releaseDate: string | null;
+  /** @nullable */
+  year: number | null;
+  /** @nullable */
+  runtime: number | null;
+  genres: string[];
+  /** @nullable */
+  rating: number | null;
+  /** @nullable */
+  voteCount: number | null;
+  /** @nullable */
+  revenue: number | null;
+  /** @nullable */
+  budget: number | null;
+  /** @nullable */
+  posterUrl: string | null;
+  /** @nullable */
+  backdropUrl: string | null;
+  /** @nullable */
+  tagline: string | null;
+  editorialSummary: string;
+  /** @nullable */
+  director: string | null;
+  cast: TmdbCastMember[];
+  /** @nullable */
+  trailerUrl: string | null;
+  /** @nullable */
+  imdbId: string | null;
+  keywords: string[];
+  related: TmdbRelatedTitle[];
+  tmdbUrl: string;
+  attribution: string;
+  syncedAt: string;
+}
+
 export interface Post {
   id: number;
   title: string;
@@ -26,6 +102,7 @@ export interface Post {
   sourceUrl?: string | null;
   category: Category;
   publishedAt: string;
+  tmdb?: TmdbMetadata;
 }
 
 export type AdminPostStatus = typeof AdminPostStatus[keyof typeof AdminPostStatus];
@@ -65,6 +142,29 @@ export const AdminPostTitleMatchType = {
   tv: 'tv',
 } as const;
 
+/**
+ * @nullable
+ */
+export type AdminPostTmdbMediaType = typeof AdminPostTmdbMediaType[keyof typeof AdminPostTmdbMediaType] | null;
+
+
+export const AdminPostTmdbMediaType = {
+  movie: 'movie',
+  tv: 'tv',
+} as const;
+
+export type AdminPostTmdbEnrichmentStatus = typeof AdminPostTmdbEnrichmentStatus[keyof typeof AdminPostTmdbEnrichmentStatus];
+
+
+export const AdminPostTmdbEnrichmentStatus = {
+  pending: 'pending',
+  ready: 'ready',
+  review: 'review',
+  unmatched: 'unmatched',
+  unavailable: 'unavailable',
+  failed: 'failed',
+} as const;
+
 export type AdminPost = Post & ({
   status: AdminPostStatus;
   sourceDomain: string;
@@ -84,7 +184,30 @@ export type AdminPost = Post & ({
   titleMatchType: AdminPostTitleMatchType;
   /** @nullable */
   titleMatchYear: number | null;
+  /** @nullable */
+  tmdbId: number | null;
+  /** @nullable */
+  tmdbMediaType: AdminPostTmdbMediaType;
+  tmdbEnrichmentStatus: AdminPostTmdbEnrichmentStatus;
 });
+
+export interface TmdbEnrichmentInput {
+  /**
+     * @minimum 1
+     * @maximum 25
+     */
+  limit?: number;
+  includeReviewed?: boolean;
+}
+
+export interface TmdbEnrichmentResult {
+  attempted: number;
+  enriched: number;
+  review: number;
+  unmatched: number;
+  unavailable: number;
+  failed: number;
+}
 
 export interface PostList {
   items: Post[];

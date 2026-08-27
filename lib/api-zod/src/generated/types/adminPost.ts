@@ -9,6 +9,8 @@ import type { AdminPostStatus } from './adminPostStatus';
 import type { AdminPostTitleMatchStatus } from './adminPostTitleMatchStatus';
 import type { AdminPostTitleMatchType } from './adminPostTitleMatchType';
 import type { AdminPostTitleSource } from './adminPostTitleSource';
+import type { AdminPostTmdbEnrichmentStatus } from './adminPostTmdbEnrichmentStatus';
+import type { AdminPostTmdbMediaType } from './adminPostTmdbMediaType';
 import type { Post } from './post';
 
 export type AdminPost = Post & ({
@@ -30,4 +32,9 @@ export type AdminPost = Post & ({
   titleMatchType: AdminPostTitleMatchType;
   /** @nullable */
   titleMatchYear: number | null;
+  /** @nullable */
+  tmdbId: number | null;
+  /** @nullable */
+  tmdbMediaType: AdminPostTmdbMediaType;
+  tmdbEnrichmentStatus: AdminPostTmdbEnrichmentStatus;
 });

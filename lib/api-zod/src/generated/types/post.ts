@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Category } from './category';
+import type { TmdbMetadata } from './tmdbMetadata';
 
 export interface Post {
   id: number;
@@ -17,4 +18,5 @@ export interface Post {
   sourceUrl?: string | null;
   category: Category;
   publishedAt: Date;
+  tmdb?: TmdbMetadata;
 }

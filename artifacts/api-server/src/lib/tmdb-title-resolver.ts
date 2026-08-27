@@ -34,6 +34,7 @@ export type ResolvedTitle = {
   detectedTitle: string;
   status: TitleMatchStatus;
   confidence: number;
+  tmdbId: number | null;
   mediaType: ScrapedTitleMediaType;
   year: number | null;
 };
@@ -143,6 +144,7 @@ export const resolveTmdbCandidates = (
       detectedTitle: parsed.candidateTitle,
       status: "unmatched",
       confidence: best?.confidence ?? 0,
+      tmdbId: null,
       mediaType: parsed.mediaType,
       year: parsed.year,
     };
@@ -158,6 +160,7 @@ export const resolveTmdbCandidates = (
     detectedTitle: best.candidate.title,
     status: matched ? "matched" : "review",
     confidence: best.confidence,
+    tmdbId: matched ? best.candidate.id : null,
     mediaType: best.candidate.mediaType,
     year: best.candidate.year,
   };
@@ -187,10 +190,10 @@ const mapTmdbResults = (
     })
     .filter((candidate): candidate is TmdbTitleCandidate => Boolean(candidate));
 
-const requestTmdbJson = async (
+export const requestTmdbJson = async <T>(
   path: string,
   apiKey: string,
-): Promise<TmdbSearchResponse> => {
+): Promise<T> => {
   const url = new URL(path, TMDB_ORIGIN);
   url.searchParams.set("api_key", apiKey);
   const destination = await resolvePublicDestination(url);
@@ -232,7 +235,7 @@ const requestTmdbJson = async (
           }
           try {
             resolve(
-              JSON.parse(Buffer.concat(chunks).toString("utf8")) as TmdbSearchResponse,
+              JSON.parse(Buffer.concat(chunks).toString("utf8")) as T,
             );
           } catch {
             reject(new Error("TMDB returned an invalid response"));
@@ -265,7 +268,7 @@ const searchTmdb = async (
           String(parsed.year),
         );
       }
-      const response = await requestTmdbJson(
+      const response = await requestTmdbJson<TmdbSearchResponse>(
         `/3/search/${mediaType}?${params.toString()}`,
         apiKey,
       );
@@ -302,6 +305,7 @@ export const createTmdbTitleResolver = (
           detectedTitle: parsed.candidateTitle,
           status: "unavailable" as const,
           confidence: 0,
+          tmdbId: null,
           mediaType: parsed.mediaType,
           year: parsed.year,
         };
@@ -318,6 +322,7 @@ export const createTmdbTitleResolver = (
           detectedTitle: parsed.candidateTitle,
           status: "unavailable" as const,
           confidence: 0,
+          tmdbId: null,
           mediaType: parsed.mediaType,
           year: parsed.year,
         };

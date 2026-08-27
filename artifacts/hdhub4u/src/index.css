@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
 @import 'tailwindcss';
 @import 'tw-animate-css';
@@ -64,55 +64,58 @@
 }
 
 :root {
-  --button-outline: rgba(0, 0, 0, 0.1);
+  --button-outline: rgba(0, 0, 0, 0.08);
   --badge-outline: rgba(0, 0, 0, 0.05);
 
   --opaque-button-border-intensity: -8;
 
   --elevate-1: rgba(0, 0, 0, 0.03);
-  --elevate-2: rgba(0, 0, 0, 0.08);
+  --elevate-2: rgba(0, 0, 0, 0.06);
 
-  --background: 0 0% 100%;
-  --foreground: 224 71% 4%;
-  --border: 220 13% 91%;
-  --input: 220 13% 91%;
-  --ring: 15 90% 55%;
-  --radius: 0.75rem;
+  /* Editorial Cream Theme */
+  --background: 42 33% 96%;
+  --foreground: 222 47% 11%;
+  --border: 42 20% 86%;
+  --input: 42 20% 86%;
+  --ring: 350 75% 50%;
+  --radius: 0.5rem;
 
-  --card: 0 0% 100%;
-  --card-foreground: 224 71% 4%;
-  --card-border: 220 13% 91%;
+  --card: 42 33% 98%;
+  --card-foreground: 222 47% 11%;
+  --card-border: 42 20% 88%;
 
-  --popover: 0 0% 100%;
-  --popover-foreground: 224 71% 4%;
-  --popover-border: 220 13% 91%;
+  --popover: 42 33% 98%;
+  --popover-foreground: 222 47% 11%;
+  --popover-border: 42 20% 88%;
 
-  --primary: 15 90% 55%;
+  /* Cinema Red */
+  --primary: 350 75% 50%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 220 14% 96%;
-  --secondary-foreground: 220.9 39.3% 11%;
+  /* Deep Ink for secondary */
+  --secondary: 222 47% 15%;
+  --secondary-foreground: 42 33% 96%;
 
-  --muted: 220 14% 96%;
-  --muted-foreground: 220 8.9% 46.1%;
+  --muted: 42 15% 90%;
+  --muted-foreground: 222 20% 40%;
 
-  --accent: 220 14% 96%;
-  --accent-foreground: 220.9 39.3% 11%;
+  --accent: 42 25% 92%;
+  --accent-foreground: 222 47% 11%;
 
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 0 0% 98%;
 
-  --sidebar: 0 0% 100%;
-  --sidebar-foreground: 224 71% 4%;
-  --sidebar-border: 220 13% 91%;
-  --sidebar-primary: 15 90% 55%;
+  --sidebar: 42 33% 98%;
+  --sidebar-foreground: 222 47% 11%;
+  --sidebar-border: 42 20% 86%;
+  --sidebar-primary: 350 75% 50%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 220 14% 96%;
-  --sidebar-accent-foreground: 220.9 39.3% 11%;
-  --sidebar-ring: 15 90% 55%;
+  --sidebar-accent: 42 25% 92%;
+  --sidebar-accent-foreground: 222 47% 11%;
+  --sidebar-ring: 350 75% 50%;
 
   --app-font-sans: 'Plus Jakarta Sans', sans-serif;
-  --app-font-serif: Georgia, serif;
+  --app-font-serif: 'Playfair Display', serif;
   --app-font-mono: Menlo, monospace;
 
   --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
@@ -127,49 +130,48 @@
 .dark {
   --button-outline: rgba(255, 255, 255, 0.1);
   --badge-outline: rgba(255, 255, 255, 0.05);
-
   --opaque-button-border-intensity: 9;
-
   --elevate-1: rgba(255, 255, 255, 0.04);
   --elevate-2: rgba(255, 255, 255, 0.09);
 
+  /* Dark Cinematic Room */
   --background: 224 71% 4%;
-  --foreground: 210 20% 98%;
+  --foreground: 42 33% 96%;
   --border: 215 27.9% 16.9%;
   --input: 215 27.9% 16.9%;
-  --ring: 15 90% 55%;
+  --ring: 350 75% 50%;
 
-  --card: 224 71% 4%;
-  --card-foreground: 210 20% 98%;
+  --card: 222 47% 6%;
+  --card-foreground: 42 33% 96%;
   --card-border: 215 27.9% 16.9%;
 
-  --popover: 224 71% 4%;
-  --popover-foreground: 210 20% 98%;
+  --popover: 222 47% 6%;
+  --popover-foreground: 42 33% 96%;
   --popover-border: 215 27.9% 16.9%;
 
-  --primary: 15 90% 55%;
+  --primary: 350 75% 50%;
   --primary-foreground: 0 0% 100%;
 
   --secondary: 215 27.9% 16.9%;
-  --secondary-foreground: 210 20% 98%;
+  --secondary-foreground: 42 33% 96%;
 
   --muted: 215 27.9% 16.9%;
   --muted-foreground: 217.9 10.6% 64.9%;
 
   --accent: 215 27.9% 16.9%;
-  --accent-foreground: 210 20% 98%;
+  --accent-foreground: 42 33% 96%;
 
   --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 20% 98%;
+  --destructive-foreground: 42 33% 96%;
 
   --sidebar: 224 71% 4%;
-  --sidebar-foreground: 210 20% 98%;
+  --sidebar-foreground: 42 33% 96%;
   --sidebar-border: 215 27.9% 16.9%;
-  --sidebar-primary: 15 90% 55%;
+  --sidebar-primary: 350 75% 50%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 215 27.9% 16.9%;
-  --sidebar-accent-foreground: 210 20% 98%;
-  --sidebar-ring: 15 90% 55%;
+  --sidebar-accent-foreground: 42 33% 96%;
+  --sidebar-ring: 350 75% 50%;
 }
 
 @layer base {
@@ -193,6 +195,18 @@
     color: hsl(var(--muted-foreground));
     pointer-events: none;
   }
+  
+  .drop-cap::first-letter {
+    float: left;
+    font-size: 3.5rem;
+    line-height: 0.8;
+    padding-right: 0.5rem;
+    padding-top: 0.2rem;
+    font-family: var(--font-display);
+    font-weight: 700;
+    color: hsl(var(--primary));
+  }
+
   .toggle-elevate::before,
   .toggle-elevate-2::before {
     content: '';

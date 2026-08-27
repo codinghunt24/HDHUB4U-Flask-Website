@@ -87,14 +87,14 @@ function RoutedErrorBoundary({ children }: { children: ReactNode }) {
       '/disclaimer': 'Disclaimer — HDHUB4U',
       '/admin': 'Admin Login — HDHUB4U',
     };
-    const routeTitle = location.startsWith('/category/')
+    const routeTitle = location.startsWith('/post/')
+      ? null
+      : location.startsWith('/category/')
       ? 'Entertainment Category — HDHUB4U'
-      : location.startsWith('/post/')
-        ? 'Entertainment Story — HDHUB4U'
         : location.startsWith('/admin/')
           ? 'Admin Workspace — HDHUB4U'
           : titles[location];
-    document.title = routeTitle ?? 'HDHUB4U';
+    if (routeTitle) document.title = routeTitle;
   }, [location]);
   return <ErrorBoundary resetKey={location}>{children}</ErrorBoundary>;
 }

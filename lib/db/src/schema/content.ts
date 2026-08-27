@@ -1,6 +1,7 @@
 import {
   boolean,
   integer,
+  jsonb,
   pgTable,
   serial,
   text,
@@ -42,6 +43,13 @@ export const postsTable = pgTable(
     titleMatchConfidence: integer("title_match_confidence"),
     titleMatchType: text("title_match_type"),
     titleMatchYear: integer("title_match_year"),
+    tmdbId: integer("tmdb_id"),
+    tmdbMediaType: text("tmdb_media_type"),
+    tmdbMetadata: jsonb("tmdb_metadata").$type<Record<string, unknown> | null>(),
+    tmdbEnrichmentStatus: text("tmdb_enrichment_status")
+      .notNull()
+      .default("pending"),
+    tmdbEnrichedAt: timestamp("tmdb_enriched_at", { withTimezone: true }),
     slug: text("slug").notNull(),
     thumbnailUrl: text("thumbnail_url").notNull(),
     excerpt: text("excerpt").notNull().default(""),

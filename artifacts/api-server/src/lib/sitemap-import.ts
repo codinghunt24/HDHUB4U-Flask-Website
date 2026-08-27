@@ -250,6 +250,17 @@ export type SitemapCandidate = {
   titleMatchConfidence?: number | null;
   titleMatchType?: "movie" | "tv" | "unknown" | null;
   titleMatchYear?: number | null;
+  tmdbId?: number | null;
+  tmdbMediaType?: "movie" | "tv" | null;
+  tmdbMetadata?: Record<string, unknown> | null;
+  tmdbEnrichmentStatus?:
+    | "pending"
+    | "ready"
+    | "review"
+    | "unmatched"
+    | "unavailable"
+    | "failed";
+  tmdbEnrichedAt?: Date | null;
 };
 
 export const persistSitemapCandidates = async (

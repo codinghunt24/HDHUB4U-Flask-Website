@@ -43,7 +43,9 @@ import type {
   SitemapScrapeInput,
   SitemapScrapeResult,
   SuccessResponse,
-  TmdbApiKeyInput
+  TmdbApiKeyInput,
+  TmdbEnrichmentInput,
+  TmdbEnrichmentResult
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -916,6 +918,77 @@ export const useUpdateAdminPost = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getUpdateAdminPostMutationOptions(options));
+    }
+
+export const getEnrichAdminTmdbPostsUrl = () => {
+
+
+
+
+  return `/api/admin/tmdb/enrich`
+}
+
+/**
+ * @summary Enrich a controlled batch of posts with TMDB metadata
+ */
+export const enrichAdminTmdbPosts = async (tmdbEnrichmentInput: TmdbEnrichmentInput, options?: Parameters<typeof customFetch>[1]): Promise<TmdbEnrichmentResult> => {
+
+  return customFetch<TmdbEnrichmentResult>(getEnrichAdminTmdbPostsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tmdbEnrichmentInput)
+  }
+);}
+
+
+
+
+
+export const getEnrichAdminTmdbPostsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enrichAdminTmdbPosts>>, TError,{data: BodyType<TmdbEnrichmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof enrichAdminTmdbPosts>>, TError,{data: BodyType<TmdbEnrichmentInput>}, TContext> => {
+
+const mutationKey = ['enrichAdminTmdbPosts'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof enrichAdminTmdbPosts>>, {data: BodyType<TmdbEnrichmentInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  enrichAdminTmdbPosts(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EnrichAdminTmdbPostsMutationResult = NonNullable<Awaited<ReturnType<typeof enrichAdminTmdbPosts>>>
+    export type EnrichAdminTmdbPostsMutationBody = BodyType<TmdbEnrichmentInput>
+    export type EnrichAdminTmdbPostsMutationError = ErrorType<void>
+
+    /**
+ * @summary Enrich a controlled batch of posts with TMDB metadata
+ */
+export const useEnrichAdminTmdbPosts = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enrichAdminTmdbPosts>>, TError,{data: BodyType<TmdbEnrichmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof enrichAdminTmdbPosts>>,
+        TError,
+        {data: BodyType<TmdbEnrichmentInput>},
+        TContext
+      > => {
+      return useMutation(getEnrichAdminTmdbPostsMutationOptions(options));
     }
 
 export const getImportPostsUrl = () => {
