@@ -21,7 +21,7 @@ export default function PostPage() {
             <Skeleton className="h-12 w-3/4" />
             <Skeleton className="h-6 w-1/4" />
           </div>
-          <Skeleton className="w-full aspect-[16/9] rounded-2xl" />
+          <Skeleton className="w-full h-96 rounded-2xl" />
           <div className="space-y-4">
             <Skeleton className="h-4 w-full" />
             <Skeleton className="h-4 w-full" />
@@ -78,14 +78,14 @@ export default function PostPage() {
           </h1>
         </div>
 
-        <div className="relative aspect-[16/9] rounded-3xl overflow-hidden bg-gray-100 shadow-xl mb-12 border border-black/5">
+        <div className="relative box-content w-[285px] h-[429px] mx-auto rounded-3xl overflow-hidden bg-gray-100 shadow-xl mb-12 border border-black/5">
           {post.thumbnailUrl ? (
             <img 
               src={post.thumbnailUrl} 
               alt={post.title}
-              width={1280}
-              height={720}
-              className="w-full h-full object-cover"
+              width={285}
+              height={429}
+              className="block w-full h-full object-contain"
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-gray-300">
