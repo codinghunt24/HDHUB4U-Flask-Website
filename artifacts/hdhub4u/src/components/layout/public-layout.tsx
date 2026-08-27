@@ -46,8 +46,8 @@ function AllCategoriesMenu({ categories }: { categories: PublicCategory[] }) {
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            size="sm"
-            className="whitespace-nowrap rounded-full text-white hover:bg-white/10 hover:text-white"
+            size="default"
+            className="whitespace-nowrap rounded-full px-4 text-sm text-white hover:bg-white/10 hover:text-white"
             aria-label="Show all categories"
           >
             All
@@ -114,7 +114,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
           <nav aria-label="Main navigation" className="hidden md:flex items-center gap-1 overflow-x-auto no-scrollbar">
             {visibleCategories.map((cat) => (
               <Link key={cat.id} href={`/category/${cat.slug}`}>
-                <Button variant="ghost" size="sm" className="whitespace-nowrap rounded-full text-white hover:bg-white/10 hover:text-white">
+                <Button variant="ghost" size="default" className="whitespace-nowrap rounded-full px-4 text-sm text-white hover:bg-white/10 hover:text-white">
                   {cat.name}
                 </Button>
               </Link>
@@ -122,13 +122,13 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
             <AllCategoriesMenu categories={menuCategories} />
           </nav>
 
-          <form onSubmit={handleSearch} className="flex-1 max-w-lg ml-auto relative group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+          <form onSubmit={handleSearch} className="w-full max-w-xs ml-auto relative group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60 group-focus-within:text-white transition-colors" />
             <Input 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search posts..." 
-              className="w-full pl-9 bg-gray-50 focus-visible:bg-white rounded-full border-gray-200 shadow-none h-11"
+              className="w-full pl-9 h-9 rounded-full border-white/15 bg-white/10 text-white placeholder:text-white/55 shadow-none backdrop-blur-sm focus-visible:border-white/30 focus-visible:bg-white/15 focus-visible:ring-white/20"
               data-testid="input-search-global"
             />
           </form>
@@ -138,7 +138,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
           <nav aria-label="Mobile navigation" className="flex md:hidden items-center gap-1 overflow-x-auto pt-2 no-scrollbar">
               {visibleCategories.map((cat) => (
                 <Link key={cat.id} href={`/category/${cat.slug}`}>
-                  <Button variant="ghost" size="sm" className="whitespace-nowrap rounded-full text-white hover:bg-white/10 hover:text-white">
+                  <Button variant="ghost" size="default" className="whitespace-nowrap rounded-full px-4 text-sm text-white hover:bg-white/10 hover:text-white">
                     {cat.name}
                   </Button>
                 </Link>
