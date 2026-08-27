@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "web", "bash"]
+modules = ["nodejs-20", "web", "bash", "postgresql-16"]
 
 [deployment]
 router = "application"
@@ -10,6 +10,51 @@ env = { "CI" = "true" }
 
 [workflows]
 runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "HDHUB4U Web"
+
+[[workflows.workflow]]
+name = "HDHUB4U Web"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = """
+set -eu
+PORT=8080 pnpm --filter @workspace/api-server run dev &
+api_pid=$!
+vite_pid=\"\"
+cleanup() { kill \"$api_pid\" ${vite_pid:+\"$vite_pid\"} 2>/dev/null || true; }
+trap cleanup EXIT INT TERM
+for attempt in $(seq 1 60); do
+  if curl -fsS http://127.0.0.1:8080/api/healthz >/dev/null; then
+    break
+  fi
+  if ! kill -0 \"$api_pid\" 2>/dev/null; then
+    echo \"API server exited before it became ready.\" >&2
+    wait \"$api_pid\"
+    exit 1
+  fi
+  sleep 1
+done
+if ! curl -fsS http://127.0.0.1:8080/api/healthz >/dev/null; then
+  echo \"API server did not become ready within 60 seconds.\" >&2
+  exit 1
+fi
+PORT=3000 BASE_PATH=/ pnpm --filter @workspace/hdhub4u run dev &
+vite_pid=$!
+wait -n \"$api_pid\" \"$vite_pid\""""
+waitForPort = 3000
 
 [agent]
 stack = "PNPM_WORKSPACE"

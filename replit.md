@@ -1,45 +1,31 @@
-# [Project name]
+# HDHUB4U
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+HDHUB4U is a Hindi entertainment publishing site with public catalog pages and an admin area for managing posts, categories, imports, sitemap, analytics, and settings.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Select **HDHUB4U Web** from the Run menu (or press Run). It starts the Express API on port 8080 and the Vite website on port 3000.
+- `pnpm run typecheck` — typecheck the workspace.
+- `PORT=3000 BASE_PATH=/ pnpm --filter @workspace/hdhub4u run build` — create the frontend production build.
+- `pnpm --filter @workspace/api-server run build` — build the API server.
+- `pnpm --filter @workspace/db run push` — apply the development database schema.
+
+The project uses the Replit-managed `DATABASE_URL` and `SESSION_SECRET` credentials. The public site is available even when the fresh database has no posts; add content through the admin area.
 
 ## Stack
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- pnpm workspaces, Node.js 20, TypeScript, React 19, Vite, Tailwind CSS
+- API: Express 5 with generated OpenAPI client hooks
+- Database: PostgreSQL with Drizzle ORM
 
-## Where things live
+## Project layout
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/hdhub4u` — React/Vite public site and admin interface.
+- `artifacts/api-server` — Express API used by the site.
+- `lib/api-spec/openapi.yaml` — source API contract.
+- `lib/db` — database schema and Drizzle configuration.
 
-## Architecture decisions
+## Notes
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
-
-## Product
-
-_Describe the high-level user-facing capabilities of this app once they exist._
-
-## User preferences
-
-_Populate as you build — explicit user instructions worth remembering across sessions._
-
-## Gotchas
-
-_Populate as you build — sharp edges, "always run X before Y" rules._
-
-## Pointers
-
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- The Vite development server proxies `/api` requests to the local Express server at port 8080 so the frontend and API run together in one workflow.
+- The Vite configuration requires `PORT` and `BASE_PATH`; the configured Replit workflow supplies them automatically.
