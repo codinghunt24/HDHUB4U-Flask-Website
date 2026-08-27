@@ -1,4 +1,4 @@
-import { useListAdminPosts, useUpdateAdminPost, useEnrichAdminTmdbPosts, getListAdminPostsQueryKey } from "@workspace/api-client-react";
+import { useListAdminPosts, useUpdateAdminPost, useEnrichAdminTmdbPosts, useDeleteAllAdminPosts, getListAdminPostsQueryKey } from "@workspace/api-client-react";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,7 +14,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Check, X, ExternalLink, Globe, Pencil, Sparkles, RefreshCcw } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Check, X, ExternalLink, Globe, Pencil, Sparkles, RefreshCcw, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -30,11 +31,14 @@ export default function AdminPosts() {
   const { data: posts, isLoading } = useListAdminPosts({ status: 'all' });
   const updatePost = useUpdateAdminPost();
   const enrichMutation = useEnrichAdminTmdbPosts();
+  const deleteAllPosts = useDeleteAllAdminPosts();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
   const [editingPost, setEditingPost] = useState<EditablePost | null>(null);
   const [editedTitle, setEditedTitle] = useState("");
+  const [cleanOpen, setCleanOpen] = useState(false);
+  const [cleanConfirmation, setCleanConfirmation] = useState("");
 
   const handleStatusChange = (id: number, status: 'published' | 'draft') => {
     updatePost.mutate({ id, data: { status } }, {
@@ -70,6 +74,31 @@ export default function AdminPosts() {
   const openTitleEditor = (post: EditablePost) => {
     setEditingPost(post);
     setEditedTitle(post.detectedTitle || post.title);
+  };
+
+  const handleCleanAllPosts = () => {
+    if (cleanConfirmation !== "DELETE ALL POSTS") return;
+    deleteAllPosts.mutate(undefined, {
+      onSuccess: (res) => {
+        setCleanOpen(false);
+        setCleanConfirmation("");
+        queryClient.invalidateQueries({ queryKey: getListAdminPostsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/summary"] });
+        toast({
+          title: "All posts deleted",
+          description: `${res.deletedCount} post${res.deletedCount === 1 ? "" : "s"} permanently removed.`,
+        });
+      },
+      onError: (error) => {
+        toast({
+          title: "Could not delete posts",
+          description: error instanceof Error ? error.message : "Please try again.",
+          variant: "destructive",
+        });
+      },
+    });
   };
 
   const saveTitle = () => {
@@ -129,18 +158,33 @@ export default function AdminPosts() {
           <p className="text-muted-foreground">Review detected names, enrich with TMDB, and manage visibility.</p>
         </div>
         
-        <Button 
-          onClick={handleEnrich} 
-          disabled={enrichMutation.isPending}
-          className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
-        >
-          {enrichMutation.isPending ? (
-            <RefreshCcw className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <Sparkles className="w-4 h-4 mr-2" />
-          )}
-          Enrich via TMDB
-        </Button>
+        <div className="flex flex-wrap gap-3">
+          <Button 
+            onClick={handleEnrich} 
+            disabled={enrichMutation.isPending || deleteAllPosts.isPending}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+          >
+            {enrichMutation.isPending ? (
+              <RefreshCcw className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Sparkles className="w-4 h-4 mr-2" />
+            )}
+            Enrich via TMDB
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => setCleanOpen(true)}
+            disabled={deleteAllPosts.isPending || enrichMutation.isPending || isLoading || !posts?.length}
+            data-testid="button-clean-all-posts"
+          >
+            {deleteAllPosts.isPending ? (
+              <RefreshCcw className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Trash2 className="w-4 h-4 mr-2" />
+            )}
+            Clean all posts
+          </Button>
+        </div>
       </div>
 
       <Card className="border-0 shadow-sm rounded-2xl overflow-hidden bg-card">
@@ -345,6 +389,54 @@ export default function AdminPosts() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={cleanOpen}
+        onOpenChange={(open) => {
+          if (!deleteAllPosts.isPending) {
+            setCleanOpen(open);
+            if (!open) setCleanConfirmation("");
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete all posts permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove every post, including published posts, drafts, imported content, and TMDB metadata. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <label htmlFor="clean-posts-confirmation" className="text-sm font-medium text-foreground">
+              Type DELETE ALL POSTS to continue
+            </label>
+            <Input
+              id="clean-posts-confirmation"
+              value={cleanConfirmation}
+              onChange={(event) => setCleanConfirmation(event.target.value)}
+              placeholder="DELETE ALL POSTS"
+              autoComplete="off"
+              disabled={deleteAllPosts.isPending}
+              data-testid="input-clean-all-posts-confirmation"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteAllPosts.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                handleCleanAllPosts();
+              }}
+              disabled={deleteAllPosts.isPending || cleanConfirmation !== "DELETE ALL POSTS"}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-clean-all-posts"
+            >
+              {deleteAllPosts.isPending && <RefreshCcw className="w-4 h-4 mr-2 animate-spin" />}
+              Delete everything
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 }

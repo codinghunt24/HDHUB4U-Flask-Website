@@ -18,6 +18,7 @@ export * from './adminSession';
 export * from './adminSettings';
 export * from './adminSummary';
 export * from './adminTmdbApiKeyStatus';
+export * from './bulkPostDeletionResult';
 export * from './category';
 export * from './healthStatus';
 export * from './importInput';

@@ -337,6 +337,11 @@ export interface AdminSummary {
   lastImportAt: string | null;
 }
 
+export interface BulkPostDeletionResult {
+  success: boolean;
+  deletedCount: number;
+}
+
 export interface SitemapInfo {
   url: string;
   indexedUrls: number;

@@ -26,6 +26,7 @@ import type {
   AdminSettings,
   AdminSummary,
   AdminTmdbApiKeyStatus,
+  BulkPostDeletionResult,
   Category,
   HealthStatus,
   ImportInput,
@@ -847,6 +848,77 @@ export function useListAdminPosts<TData = Awaited<ReturnType<typeof listAdminPos
 
 
 
+
+export const getDeleteAllAdminPostsUrl = () => {
+
+
+
+
+  return `/api/admin/posts`
+}
+
+/**
+ * @summary Permanently delete every post
+ */
+export const deleteAllAdminPosts = async ( options?: Parameters<typeof customFetch>[1]): Promise<BulkPostDeletionResult> => {
+
+  return customFetch<BulkPostDeletionResult>(getDeleteAllAdminPostsUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteAllAdminPostsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAllAdminPosts>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAllAdminPosts>>, TError,void, TContext> => {
+
+const mutationKey = ['deleteAllAdminPosts'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAllAdminPosts>>, void> = () => {
+
+
+          return  deleteAllAdminPosts(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAllAdminPostsMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAllAdminPosts>>>
+
+    export type DeleteAllAdminPostsMutationError = ErrorType<void>
+
+    /**
+ * @summary Permanently delete every post
+ */
+export const useDeleteAllAdminPosts = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAllAdminPosts>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteAllAdminPosts>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDeleteAllAdminPostsMutationOptions(options));
+    }
 
 export const getUpdateAdminPostUrl = (id: number,) => {
 

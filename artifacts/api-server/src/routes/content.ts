@@ -34,6 +34,7 @@ import {
   UpdateAdminSettingsBody,
   UpdateAdminSettingsResponse,
   DeleteAdminTmdbApiKeyResponse,
+  DeleteAllAdminPostsResponse,
   SaveAdminTmdbApiKeyBody,
   SaveAdminTmdbApiKeyResponse,
 } from "@workspace/api-zod";
@@ -837,6 +838,24 @@ router.get("/admin/posts", async (req, res): Promise<void> => {
         ...adminPostShape(row),
       })),
     ),
+  );
+});
+
+router.delete("/admin/posts", async (req, res): Promise<void> => {
+  if (!(await requireAdmin(req))) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const deletedRows = await db
+    .delete(postsTable)
+    .returning({ id: postsTable.id });
+
+  res.json(
+    DeleteAllAdminPostsResponse.parse({
+      success: true,
+      deletedCount: deletedRows.length,
+    }),
   );
 });
 

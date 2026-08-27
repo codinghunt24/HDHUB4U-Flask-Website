@@ -305,6 +305,15 @@ export const ListAdminPostsResponse = zod.array(ListAdminPostsResponseItem)
 
 
 /**
+ * @summary Permanently delete every post
+ */
+export const DeleteAllAdminPostsResponse = zod.object({
+  "success": zod.boolean(),
+  "deletedCount": zod.number()
+})
+
+
+/**
  * @summary Update post visibility or metadata
  */
 export const UpdateAdminPostParams = zod.object({

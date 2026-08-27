@@ -198,6 +198,19 @@ paths:
                   $ref: "#/components/schemas/AdminPost"
         "401":
           description: Unauthorized
+    delete:
+      operationId: deleteAllAdminPosts
+      tags: [admin]
+      summary: Permanently delete every post
+      responses:
+        "200":
+          description: Bulk deletion result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkPostDeletionResult"
+        "401":
+          description: Unauthorized
   /admin/posts/{id}:
     patch:
       operationId: updateAdminPost
@@ -715,6 +728,12 @@ components:
         draftPosts: { type: number }
         categories: { type: number }
         lastImportAt: { type: ["string", "null"], format: date-time }
+    BulkPostDeletionResult:
+      type: object
+      required: [success, deletedCount]
+      properties:
+        success: { type: boolean }
+        deletedCount: { type: number }
     SitemapInfo:
       type: object
       required: [url, indexedUrls, lastGeneratedAt]
