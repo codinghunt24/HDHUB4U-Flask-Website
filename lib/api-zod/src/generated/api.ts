@@ -160,19 +160,13 @@ export const GetPostResponse = zod.object({
 
 
 /**
- * @summary Get a proxied source gallery image
+ * @summary Get a compressed internally stored post image
  */
-export const getSourceImagePathIndexMin = 0;
-export const getSourceImagePathIndexMax = 11;
-
-
-
-export const GetSourceImageParams = zod.object({
-  "slug": zod.coerce.string(),
-  "index": zod.coerce.number().int().min(getSourceImagePathIndexMin).max(getSourceImagePathIndexMax)
+export const GetMediaAssetParams = zod.object({
+  "assetId": zod.coerce.string()
 })
 
-export const GetSourceImageResponse = zod.unknown()
+export const GetMediaAssetResponse = zod.unknown()
 
 
 /**
@@ -464,6 +458,25 @@ export const RefreshAdminPostSourceImagesResponse = zod.object({
   "attempted": zod.number(),
   "refreshed": zod.number(),
   "failed": zod.number()
+})
+
+
+/**
+ * @summary Move a bounded batch of legacy post images into private app storage
+ */
+export const backfillAdminPostMediaBodyLimitDefault = 5;
+export const backfillAdminPostMediaBodyLimitMax = 10;
+
+
+
+export const BackfillAdminPostMediaBody = zod.object({
+  "limit": zod.number().min(1).max(backfillAdminPostMediaBodyLimitMax).default(backfillAdminPostMediaBodyLimitDefault)
+})
+
+export const BackfillAdminPostMediaResponse = zod.object({
+  "attempted": zod.number(),
+  "migrated": zod.number(),
+  "remaining": zod.number()
 })
 
 

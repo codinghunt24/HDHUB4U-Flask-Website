@@ -86,38 +86,29 @@ paths:
                 $ref: "#/components/schemas/Post"
         "404":
           description: Post not found
-  /source-images/{slug}/{index}:
+  /media/{assetId}:
     get:
-      operationId: getSourceImage
+      operationId: getMediaAsset
       tags: [public]
-      summary: Get a proxied source gallery image
+      summary: Get a compressed internally stored post image
       parameters:
-        - name: slug
+        - name: assetId
           in: path
           required: true
           schema:
             type: string
-        - name: index
-          in: path
-          required: true
-          schema:
-            type: integer
-            minimum: 0
-            maximum: 11
       responses:
         "200":
-          description: Image bytes
+          description: Compressed image bytes
           content:
-            image/jpeg:
+            image/webp:
               schema:
                 type: string
                 format: binary
         "400":
-          description: Invalid source image request
+          description: Invalid media asset request
         "404":
-          description: Source image not found
-        "502":
-          description: Source image is unavailable
+          description: Media asset not found
   /categories:
     get:
       operationId: listCategories
@@ -311,6 +302,28 @@ paths:
                 $ref: "#/components/schemas/SourceImageRefreshResult"
         "400":
           description: Invalid refresh request
+        "401":
+          description: Unauthorized
+  /admin/posts/media/backfill:
+    post:
+      operationId: backfillAdminPostMedia
+      tags: [admin]
+      summary: Move a bounded batch of legacy post images into private app storage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostMediaBackfillInput"
+      responses:
+        "200":
+          description: Post media backfill result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostMediaBackfillResult"
+        "400":
+          description: Invalid backfill request
         "401":
           description: Unauthorized
   /admin/import:
@@ -668,6 +681,17 @@ components:
         attempted: { type: number }
         refreshed: { type: number }
         failed: { type: number }
+    PostMediaBackfillInput:
+      type: object
+      properties:
+        limit: { type: number, minimum: 1, maximum: 10, default: 5 }
+    PostMediaBackfillResult:
+      type: object
+      required: [attempted, migrated, remaining]
+      properties:
+        attempted: { type: number }
+        migrated: { type: number }
+        remaining: { type: number }
     PostList:
       type: object
       required: [items, page, limit, total, totalPages]

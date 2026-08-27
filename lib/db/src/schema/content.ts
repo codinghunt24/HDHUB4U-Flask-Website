@@ -51,6 +51,8 @@ export const postsTable = pgTable(
       .default("pending"),
     tmdbEnrichedAt: timestamp("tmdb_enriched_at", { withTimezone: true }),
     slug: text("slug").notNull(),
+    // App Storage object paths only. Public API responses translate these to
+    // same-origin media URLs and never expose the original remote image URL.
     thumbnailUrl: text("thumbnail_url").notNull(),
     sourceImageUrls: jsonb("source_image_urls").$type<string[] | null>(),
     sourceImagesRefreshedAt: timestamp("source_images_refreshed_at", {

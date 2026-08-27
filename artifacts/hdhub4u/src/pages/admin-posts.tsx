@@ -3,6 +3,7 @@ import {
   useUpdateAdminPost,
   useEnrichAdminTmdbPosts,
   useRefreshAdminPostSourceImages,
+  useBackfillAdminPostMedia,
   useDeleteAllAdminPosts,
   getListAdminPostsQueryKey,
 } from "@workspace/api-client-react";
@@ -39,6 +40,7 @@ export default function AdminPosts() {
   const updatePost = useUpdateAdminPost();
   const enrichMutation = useEnrichAdminTmdbPosts();
   const refreshSourceImages = useRefreshAdminPostSourceImages();
+  const backfillMedia = useBackfillAdminPostMedia();
   const deleteAllPosts = useDeleteAllAdminPosts();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -95,6 +97,29 @@ export default function AdminPosts() {
           toast({
             title: "Source screenshot refresh failed",
             description: "The selected sources could not be refreshed. Please try again.",
+            variant: "destructive",
+          });
+        },
+      },
+    );
+  };
+
+  const handleBackfillMedia = () => {
+    backfillMedia.mutate(
+      { data: { limit: 5 } },
+      {
+        onSuccess: (result) => {
+          toast({
+            title: "Image migration complete",
+            description: `Attempted: ${result.attempted} | Stored: ${result.migrated} | Remaining: ${result.remaining}`,
+          });
+          queryClient.invalidateQueries({ queryKey: getListAdminPostsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+        },
+        onError: () => {
+          toast({
+            title: "Image migration paused",
+            description: "Some images could not be moved safely. Try the next batch later.",
             variant: "destructive",
           });
         },
@@ -192,7 +217,7 @@ export default function AdminPosts() {
         <div className="flex flex-wrap gap-3">
           <Button 
             onClick={handleEnrich} 
-            disabled={enrichMutation.isPending || refreshSourceImages.isPending || deleteAllPosts.isPending}
+            disabled={enrichMutation.isPending || refreshSourceImages.isPending || backfillMedia.isPending || deleteAllPosts.isPending}
             className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
           >
             {enrichMutation.isPending ? (
@@ -205,7 +230,7 @@ export default function AdminPosts() {
           <Button
             variant="outline"
             onClick={handleRefreshSourceImages}
-            disabled={enrichMutation.isPending || refreshSourceImages.isPending || deleteAllPosts.isPending || isLoading || !posts?.length}
+            disabled={enrichMutation.isPending || refreshSourceImages.isPending || backfillMedia.isPending || deleteAllPosts.isPending || isLoading || !posts?.length}
           >
             {refreshSourceImages.isPending ? (
               <RefreshCcw className="w-4 h-4 mr-2 animate-spin" />
@@ -215,9 +240,21 @@ export default function AdminPosts() {
             Refresh screenshots
           </Button>
           <Button
+            variant="outline"
+            onClick={handleBackfillMedia}
+            disabled={enrichMutation.isPending || refreshSourceImages.isPending || backfillMedia.isPending || deleteAllPosts.isPending || isLoading || !posts?.length}
+          >
+            {backfillMedia.isPending ? (
+              <RefreshCcw className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Images className="w-4 h-4 mr-2" />
+            )}
+            Move legacy images
+          </Button>
+          <Button
             variant="destructive"
             onClick={() => setCleanOpen(true)}
-            disabled={deleteAllPosts.isPending || enrichMutation.isPending || refreshSourceImages.isPending || isLoading || !posts?.length}
+            disabled={deleteAllPosts.isPending || enrichMutation.isPending || refreshSourceImages.isPending || backfillMedia.isPending || isLoading || !posts?.length}
             data-testid="button-clean-all-posts"
           >
             {deleteAllPosts.isPending ? (

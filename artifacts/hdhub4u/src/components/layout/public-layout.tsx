@@ -79,7 +79,13 @@ function AllCategoriesMenu({ categories }: { categories: PublicCategory[] }) {
   );
 }
 
-export function PublicLayout({ children }: { children: React.ReactNode }) {
+export function PublicLayout({
+  children,
+  fullBleed = false,
+}: {
+  children: React.ReactNode;
+  fullBleed?: boolean;
+}) {
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
   const { data: settings } = useGetPublicSettings();
@@ -97,7 +103,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className={`min-h-screen flex flex-col ${fullBleed ? "bg-black" : "bg-gray-50"}`}>
       {/* Header */}
       <header className="bg-[#141414] border-b border-white/10 sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto px-4 py-3">
@@ -149,10 +155,14 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 w-full bg-background">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          {children}
-        </div>
+      <main className={`flex-1 w-full ${fullBleed ? "bg-black" : "bg-background"}`}>
+        {fullBleed ? (
+          children
+        ) : (
+          <div className="max-w-7xl mx-auto px-4 py-8">
+            {children}
+          </div>
+        )}
       </main>
 
       {/* Footer */}

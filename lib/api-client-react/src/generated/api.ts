@@ -35,6 +35,8 @@ import type {
   ListPostsParams,
   Post,
   PostList,
+  PostMediaBackfillInput,
+  PostMediaBackfillResult,
   PostUpdate,
   PublicSettings,
   SettingsUpdate,
@@ -317,22 +319,20 @@ export function useGetPost<TData = Awaited<ReturnType<typeof getPost>>, TError =
 
 
 
-export const getGetSourceImageUrl = (slug: string,
-    index: number,) => {
+export const getGetMediaAssetUrl = (assetId: string,) => {
 
 
 
 
-  return `/api/source-images/${slug}/${index}`
+  return `/api/media/${assetId}`
 }
 
 /**
- * @summary Get a proxied source gallery image
+ * @summary Get a compressed internally stored post image
  */
-export const getSourceImage = async (slug: string,
-    index: number, options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+export const getMediaAsset = async (assetId: string, options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
 
-  return customFetch<Blob>(getGetSourceImageUrl(slug,index),
+  return customFetch<Blob>(getGetMediaAssetUrl(assetId),
   {
     ...options,
     method: 'GET'
@@ -345,48 +345,45 @@ export const getSourceImage = async (slug: string,
 
 
 
-export const getGetSourceImageQueryKey = (slug: string,
-    index: number,) => {
+export const getGetMediaAssetQueryKey = (assetId: string,) => {
     return [
-    `/api/source-images/${slug}/${index}`
+    `/api/media/${assetId}`
     ] as const;
     }
 
 
-export const getGetSourceImageQueryOptions = <TData = Awaited<ReturnType<typeof getSourceImage>>, TError = ErrorType<void>>(slug: string,
-    index: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSourceImage>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetMediaAssetQueryOptions = <TData = Awaited<ReturnType<typeof getMediaAsset>>, TError = ErrorType<void>>(assetId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMediaAsset>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetSourceImageQueryKey(slug,index);
+  const queryKey =  queryOptions?.queryKey ?? getGetMediaAssetQueryKey(assetId);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSourceImage>>> = ({ signal }) => getSourceImage(slug,index, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMediaAsset>>> = ({ signal }) => getMediaAsset(assetId, { signal, ...requestOptions });
 
 
 
 
 
-   return  { queryKey, queryFn, enabled: slug !== null && slug !== undefined && index !== null && index !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSourceImage>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, enabled: assetId !== null && assetId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMediaAsset>>, TError, TData> & { queryKey: QueryKey }
 }
 
-export type GetSourceImageQueryResult = NonNullable<Awaited<ReturnType<typeof getSourceImage>>>
-export type GetSourceImageQueryError = ErrorType<void>
+export type GetMediaAssetQueryResult = NonNullable<Awaited<ReturnType<typeof getMediaAsset>>>
+export type GetMediaAssetQueryError = ErrorType<void>
 
 
 /**
- * @summary Get a proxied source gallery image
+ * @summary Get a compressed internally stored post image
  */
 
-export function useGetSourceImage<TData = Awaited<ReturnType<typeof getSourceImage>>, TError = ErrorType<void>>(
- slug: string,
-    index: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSourceImage>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useGetMediaAsset<TData = Awaited<ReturnType<typeof getMediaAsset>>, TError = ErrorType<void>>(
+ assetId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMediaAsset>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetSourceImageQueryOptions(slug,index,options)
+  const queryOptions = getGetMediaAssetQueryOptions(assetId,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -1216,6 +1213,77 @@ export const useRefreshAdminPostSourceImages = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getRefreshAdminPostSourceImagesMutationOptions(options));
+    }
+
+export const getBackfillAdminPostMediaUrl = () => {
+
+
+
+
+  return `/api/admin/posts/media/backfill`
+}
+
+/**
+ * @summary Move a bounded batch of legacy post images into private app storage
+ */
+export const backfillAdminPostMedia = async (postMediaBackfillInput: PostMediaBackfillInput, options?: Parameters<typeof customFetch>[1]): Promise<PostMediaBackfillResult> => {
+
+  return customFetch<PostMediaBackfillResult>(getBackfillAdminPostMediaUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(postMediaBackfillInput)
+  }
+);}
+
+
+
+
+
+export const getBackfillAdminPostMediaMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof backfillAdminPostMedia>>, TError,{data: BodyType<PostMediaBackfillInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof backfillAdminPostMedia>>, TError,{data: BodyType<PostMediaBackfillInput>}, TContext> => {
+
+const mutationKey = ['backfillAdminPostMedia'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof backfillAdminPostMedia>>, {data: BodyType<PostMediaBackfillInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  backfillAdminPostMedia(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BackfillAdminPostMediaMutationResult = NonNullable<Awaited<ReturnType<typeof backfillAdminPostMedia>>>
+    export type BackfillAdminPostMediaMutationBody = BodyType<PostMediaBackfillInput>
+    export type BackfillAdminPostMediaMutationError = ErrorType<void>
+
+    /**
+ * @summary Move a bounded batch of legacy post images into private app storage
+ */
+export const useBackfillAdminPostMedia = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof backfillAdminPostMedia>>, TError,{data: BodyType<PostMediaBackfillInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof backfillAdminPostMedia>>,
+        TError,
+        {data: BodyType<PostMediaBackfillInput>},
+        TContext
+      > => {
+      return useMutation(getBackfillAdminPostMediaMutationOptions(options));
     }
 
 export const getImportPostsUrl = () => {

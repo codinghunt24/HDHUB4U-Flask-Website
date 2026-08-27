@@ -226,6 +226,20 @@ export interface SourceImageRefreshResult {
   failed: number;
 }
 
+export interface PostMediaBackfillInput {
+  /**
+     * @minimum 1
+     * @maximum 10
+     */
+  limit?: number;
+}
+
+export interface PostMediaBackfillResult {
+  attempted: number;
+  migrated: number;
+  remaining: number;
+}
+
 export interface PostList {
   items: Post[];
   page: number;

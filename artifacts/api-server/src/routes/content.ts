@@ -6,6 +6,8 @@ import {
   AdminLoginBody,
   AdminLoginResponse,
   AdminLogoutResponse,
+  BackfillAdminPostMediaBody,
+  BackfillAdminPostMediaResponse,
   DiscoverSitemapsBody,
   DiscoverSitemapsResponse,
   EnrichAdminTmdbPostsBody,
@@ -101,7 +103,15 @@ import {
 } from "../lib/tmdb-title-resolver";
 import {
   fetchTmdbCatalogMetadata,
+  type TmdbCatalogMetadata,
 } from "../lib/tmdb-metadata";
+import {
+  getPublicMediaUrl,
+  isMediaAssetId,
+  MediaAssetNotFoundError,
+  openMediaAsset,
+  persistMediaAsset,
+} from "../lib/media-storage";
 
 const router: IRouter = Router();
 const SESSION_COOKIE = "hdhub4u_admin";
@@ -336,6 +346,117 @@ const fetchSourceImage = async (url: URL) => {
   throw new Error("Source redirected too many times");
 };
 
+const persistRemoteImage = async (url: string, maxWidth = 1600) => {
+  try {
+    const image = await fetchSourceImage(parseExternalUrl(url));
+    return (await persistMediaAsset(image.body, maxWidth)).objectPath;
+  } catch {
+    // Source media is optional. Never retain a remote fallback when an image
+    // cannot be safely fetched, decoded, compressed, and stored.
+    return null;
+  }
+};
+
+const persistRemoteImageList = async (urls: string[]) => {
+  const stored: string[] = [];
+  for (const url of urls) {
+    const objectPath = await persistRemoteImage(url);
+    if (objectPath) stored.push(objectPath);
+  }
+  return [...new Set(stored)].slice(0, SOURCE_IMAGE_LIMIT);
+};
+
+const persistTmdbMediaAssets = async (
+  metadata: TmdbCatalogMetadata,
+): Promise<TmdbCatalogMetadata> => {
+  const [posterUrl, backdropUrl] = await Promise.all([
+    metadata.posterUrl ? persistRemoteImage(metadata.posterUrl, 720) : null,
+    metadata.backdropUrl ? persistRemoteImage(metadata.backdropUrl, 1600) : null,
+  ]);
+  const cast = await Promise.all(
+    metadata.cast.map(async (member) => ({
+      ...member,
+      profileUrl: member.profileUrl
+        ? await persistRemoteImage(member.profileUrl, 360)
+        : null,
+    })),
+  );
+  const related = await Promise.all(
+    metadata.related.map(async (item) => ({
+      ...item,
+      posterUrl: item.posterUrl
+        ? await persistRemoteImage(item.posterUrl, 480)
+        : null,
+    })),
+  );
+  return { ...metadata, posterUrl, backdropUrl, cast, related };
+};
+
+const isRemoteImageUrl = (value: unknown): value is string =>
+  typeof value === "string" && /^https?:\/\//i.test(value);
+
+const backfillImageReference = async (value: unknown, maxWidth: number) =>
+  isRemoteImageUrl(value) ? (await persistRemoteImage(value, maxWidth)) ?? value : value;
+
+const hasRemoteTmdbMedia = (metadata: unknown) => {
+  if (!metadata || typeof metadata !== "object") return false;
+  const record = metadata as Record<string, unknown>;
+  return (
+    isRemoteImageUrl(record.posterUrl) ||
+    isRemoteImageUrl(record.backdropUrl) ||
+    (Array.isArray(record.cast) &&
+      record.cast.some(
+        (member) =>
+          member &&
+          typeof member === "object" &&
+          isRemoteImageUrl((member as Record<string, unknown>).profileUrl),
+      )) ||
+    (Array.isArray(record.related) &&
+      record.related.some(
+        (item) =>
+          item &&
+          typeof item === "object" &&
+          isRemoteImageUrl((item as Record<string, unknown>).posterUrl),
+      ))
+  );
+};
+
+const backfillTmdbMedia = async (metadata: Record<string, unknown>) => ({
+  ...metadata,
+  posterUrl: await backfillImageReference(metadata.posterUrl, 720),
+  backdropUrl: await backfillImageReference(metadata.backdropUrl, 1600),
+  cast: Array.isArray(metadata.cast)
+    ? await Promise.all(
+        metadata.cast.map(async (member) =>
+          member && typeof member === "object"
+            ? {
+                ...(member as Record<string, unknown>),
+                profileUrl: await backfillImageReference(
+                  (member as Record<string, unknown>).profileUrl,
+                  360,
+                ),
+              }
+            : member,
+        ),
+      )
+    : [],
+  related: Array.isArray(metadata.related)
+    ? await Promise.all(
+        metadata.related.map(async (item) =>
+          item && typeof item === "object"
+            ? {
+                ...(item as Record<string, unknown>),
+                posterUrl: await backfillImageReference(
+                  (item as Record<string, unknown>).posterUrl,
+                  480,
+                ),
+              }
+            : item,
+        ),
+      )
+    : [],
+});
+
 const discoverSitemapRoot = async (sourceUrl: URL) => {
   const candidates = /\.xml$/i.test(sourceUrl.pathname)
     ? [sourceUrl]
@@ -509,11 +630,12 @@ const resolvePostTmdb = async (
       resolution.mediaType,
       apiKey,
     );
+    const persistedMetadata = await persistTmdbMediaAssets(metadata);
     return {
       ...fields,
-      tmdbId: metadata.id,
-      tmdbMediaType: metadata.mediaType,
-      tmdbMetadata: metadata as unknown as Record<string, unknown>,
+      tmdbId: persistedMetadata.id,
+      tmdbMediaType: persistedMetadata.mediaType,
+      tmdbMetadata: persistedMetadata as unknown as Record<string, unknown>,
       tmdbEnrichmentStatus: "ready" as const,
       tmdbEnrichedAt: new Date(),
     };
@@ -564,9 +686,17 @@ const parsePostPage = async (
       /<img\b[^>]*(?:src|data-src|data-lazy-src)=["']([^"']+)["'][^>]*>/i,
     )?.[1] ??
     null;
-  const sourceImageUrls = await validatePublicSourceImageUrls(
+  const remoteSourceImageUrls = await validatePublicSourceImageUrls(
     extractSourceImageUrls(html, url),
   );
+  const sourceImageUrls = await persistRemoteImageList(remoteSourceImageUrls);
+  const remoteThumbnailUrl = getValidExternalImageUrl(image, url);
+  const thumbnailUrl =
+    (remoteThumbnailUrl
+      ? await persistRemoteImage(remoteThumbnailUrl, 720)
+      : null) ??
+    sourceImageUrls[0] ??
+    "";
   const lastPathSegment =
     url.pathname.split("/").filter(Boolean).pop() ?? "Imported post";
   const fallbackTitle = (() => {
@@ -584,10 +714,7 @@ const parsePostPage = async (
   );
   return {
     ...(await resolvePostTmdb(parsedTitle, resolveTitle, apiKey)),
-    thumbnailUrl:
-      getValidExternalImageUrl(image, url) ??
-      sourceImageUrls[0] ??
-      "/editorial-streaming.jpg",
+    thumbnailUrl,
     sourceImageUrls,
   };
 };
@@ -628,6 +755,32 @@ const categoryShape = (
 const normalizeTmdbMetadata = (metadata: Record<string, unknown>) => ({
   ...metadata,
   language: typeof metadata.language === "string" ? metadata.language : null,
+  posterUrl: getPublicMediaUrl(metadata.posterUrl),
+  backdropUrl: getPublicMediaUrl(metadata.backdropUrl),
+  cast: Array.isArray(metadata.cast)
+    ? metadata.cast.map((member) =>
+        member && typeof member === "object"
+          ? {
+              ...(member as Record<string, unknown>),
+              profileUrl: getPublicMediaUrl(
+                (member as Record<string, unknown>).profileUrl,
+              ),
+            }
+          : member,
+      )
+    : [],
+  related: Array.isArray(metadata.related)
+    ? metadata.related.map((item) =>
+        item && typeof item === "object"
+          ? {
+              ...(item as Record<string, unknown>),
+              posterUrl: getPublicMediaUrl(
+                (item as Record<string, unknown>).posterUrl,
+              ),
+            }
+          : item,
+      )
+    : [],
 });
 
 const postShape = (row: {
@@ -662,11 +815,11 @@ const postShape = (row: {
     id: row.id,
     title: publicTitle,
     slug: row.slug,
-    thumbnailUrl: row.thumbnailUrl,
-    sourceImageUrls: (row.sourceImageUrls ?? []).map(
-      (_sourceImageUrl, index) =>
-        `/api/source-images/${encodeURIComponent(row.slug)}/${index}`,
-    ),
+    thumbnailUrl: getPublicMediaUrl(row.thumbnailUrl) ?? "/editorial-streaming.jpg",
+    sourceImageUrls: (row.sourceImageUrls ?? []).flatMap((sourceImageUrl) => {
+      const url = getPublicMediaUrl(sourceImageUrl);
+      return url ? [url] : [];
+    }),
     excerpt: cleanImportedExcerpt(row.excerpt, publicTitle),
     sourceUrl: row.sourceUrl,
     category: categoryShape(
@@ -803,48 +956,33 @@ router.get("/posts/:slug", async (req, res): Promise<void> => {
   res.json(GetPostResponse.parse(postShape(row)));
 });
 
-router.get("/source-images/:slug/:index", async (req, res): Promise<void> => {
-  const params = GetPostParams.safeParse({ slug: req.params.slug });
-  const index = Number(req.params.index);
-  if (
-    !params.success ||
-    !Number.isInteger(index) ||
-    index < 0 ||
-    index >= SOURCE_IMAGE_LIMIT
-  ) {
-    res.status(400).json({ error: "Invalid source image request" });
+router.get("/media/:assetId", async (req, res): Promise<void> => {
+  if (!isMediaAssetId(req.params.assetId)) {
+    res.status(400).json({ error: "Invalid media asset request" });
     return;
   }
-
-  const [post] = await db
-    .select({
-      sourceImageUrls: postsTable.sourceImageUrls,
-    })
-    .from(postsTable)
-    .where(
-      and(
-        eq(postsTable.slug, params.data.slug),
-        eq(postsTable.published, true),
-      ),
-    )
-    .limit(1);
-  const sourceImageUrl = post?.sourceImageUrls?.[index];
-  if (!sourceImageUrl) {
-    res.status(404).json({ error: "Source image not found" });
-    return;
-  }
-
   try {
-    const image = await fetchSourceImage(parseExternalUrl(sourceImageUrl));
+    const asset = await openMediaAsset(req.params.assetId);
     res.set({
-      "Cache-Control": "public, max-age=3600",
-      "Content-Type": image.contentType,
+      "Cache-Control": "public, max-age=31536000, immutable",
+      "Content-Type": asset.contentType,
       "X-Content-Type-Options": "nosniff",
     });
-    res.send(image.body);
+    if (asset.contentLength) res.set("Content-Length", asset.contentLength);
+    asset.file.createReadStream()
+      .on("error", (error) => {
+        req.log.error({ err: error, assetId: req.params.assetId }, "Media asset stream failed");
+        if (!res.headersSent) res.status(500).json({ error: "Media asset is unavailable" });
+        else res.destroy(error);
+      })
+      .pipe(res);
   } catch (error) {
-    req.log.warn({ err: error, slug: params.data.slug, index }, "Source image proxy failed");
-    res.status(502).json({ error: "Source image is unavailable" });
+    if (error instanceof MediaAssetNotFoundError) {
+      res.status(404).json({ error: "Media asset not found" });
+      return;
+    }
+    req.log.error({ err: error, assetId: req.params.assetId }, "Media asset lookup failed");
+    res.status(500).json({ error: "Media asset is unavailable" });
   }
 });
 
@@ -1224,12 +1362,13 @@ router.post(
       try {
         const sourceUrl = parseExternalUrl(candidate.sourceUrl);
         const html = await fetchSourceText(sourceUrl);
+        const remoteImageUrls = await validatePublicSourceImageUrls(
+          extractSourceImageUrls(html, sourceUrl),
+        );
         await db
           .update(postsTable)
           .set({
-            sourceImageUrls: await validatePublicSourceImageUrls(
-              extractSourceImageUrls(html, sourceUrl),
-            ),
+            sourceImageUrls: await persistRemoteImageList(remoteImageUrls),
             sourceImagesRefreshedAt: refreshedAt,
           })
           .where(eq(postsTable.id, candidate.id));
@@ -1250,6 +1389,79 @@ router.post(
     }
 
     res.json(RefreshAdminPostSourceImagesResponse.parse(results));
+  },
+);
+
+router.post(
+  "/admin/posts/media/backfill",
+  async (req, res): Promise<void> => {
+    if (!(await requireAdmin(req))) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const parsed = BackfillAdminPostMediaBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+
+    const limit = Math.min(10, Math.max(1, Math.floor(parsed.data.limit ?? 5)));
+    const candidates = await db
+      .select({
+        id: postsTable.id,
+        thumbnailUrl: postsTable.thumbnailUrl,
+        sourceImageUrls: postsTable.sourceImageUrls,
+        tmdbMetadata: postsTable.tmdbMetadata,
+      })
+      .from(postsTable)
+      .where(sql`(
+        ${postsTable.thumbnailUrl} ~* '^https?://' OR
+        coalesce(${postsTable.sourceImageUrls}::text, '') ~* 'https?://' OR
+        (${postsTable.tmdbMetadata}->>'posterUrl') ~* '^https?://' OR
+        (${postsTable.tmdbMetadata}->>'backdropUrl') ~* '^https?://' OR
+        jsonb_path_exists(${postsTable.tmdbMetadata}, '$.cast[*].profileUrl ? (@ like_regex "^https?://")') OR
+        jsonb_path_exists(${postsTable.tmdbMetadata}, '$.related[*].posterUrl ? (@ like_regex "^https?://")')
+      )`)
+      .orderBy(asc(postsTable.updatedAt), desc(postsTable.publishedAt))
+      .limit(limit);
+    const results = { attempted: 0, migrated: 0, remaining: 0 };
+
+    for (const candidate of candidates) {
+      results.attempted += 1;
+      const sourceImages = Array.isArray(candidate.sourceImageUrls)
+        ? candidate.sourceImageUrls
+        : [];
+      const sourceImageUrls = await Promise.all(
+        sourceImages.map((value) => backfillImageReference(value, 1600)),
+      );
+      const tmdbMetadata =
+        candidate.tmdbMetadata && typeof candidate.tmdbMetadata === "object"
+          ? await backfillTmdbMedia(candidate.tmdbMetadata as Record<string, unknown>)
+          : candidate.tmdbMetadata;
+      const thumbnailUrl = await backfillImageReference(candidate.thumbnailUrl, 720);
+      const stillRemote =
+        isRemoteImageUrl(thumbnailUrl) ||
+        sourceImageUrls.some(isRemoteImageUrl) ||
+        hasRemoteTmdbMedia(tmdbMetadata);
+
+      await db
+        .update(postsTable)
+        .set({
+          thumbnailUrl: typeof thumbnailUrl === "string" ? thumbnailUrl : "",
+          sourceImageUrls: sourceImageUrls.filter(
+            (value): value is string => typeof value === "string",
+          ),
+          tmdbMetadata:
+            tmdbMetadata && typeof tmdbMetadata === "object"
+              ? (tmdbMetadata as Record<string, unknown>)
+              : null,
+        })
+        .where(eq(postsTable.id, candidate.id));
+      if (stillRemote) results.remaining += 1;
+      else results.migrated += 1;
+    }
+
+    res.json(BackfillAdminPostMediaResponse.parse(results));
   },
 );
 
@@ -1650,7 +1862,11 @@ router.post("/admin/import", async (req, res): Promise<void> => {
             );
             return {
               url: candidate.url,
-              thumbnailUrl: candidate.thumbnailUrl,
+              thumbnailUrl:
+                (await persistRemoteImage(
+                  getValidExternalImageUrl(candidate.thumbnailUrl, source) ?? "",
+                  720,
+                )) ?? "",
               sourceImageUrls: [],
               ...(await resolvePostTmdb(
                 candidate.parsedTitle,

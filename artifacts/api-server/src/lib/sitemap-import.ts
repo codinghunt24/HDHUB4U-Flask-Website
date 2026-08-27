@@ -291,9 +291,9 @@ const getSrcsetCandidates = (value: string) => {
 };
 
 /**
- * Extracts presentation-relevant image URLs from source HTML without fetching
- * those images. Individual candidates are resolved against the safely fetched
- * post URL and are restricted to public HTTP(S) destinations.
+ * Extracts presentation-relevant image URLs from source HTML. Individual
+ * candidates are resolved against the safely fetched post URL and restricted
+ * to public HTTP(S) destinations before server-side ingestion.
  */
 export const extractSourceImageUrls = (
   html: string,
@@ -333,9 +333,8 @@ export const extractSourceImageUrls = (
 };
 
 /**
- * DNS-validates gallery URLs before persistence. The application does not
- * proxy image bytes, so this protects visitors from receiving an image URL
- * whose hostname resolves to a private network destination.
+ * DNS-validates gallery URLs before the server downloads, transforms, and
+ * stores their bytes. This prevents unsafe source destinations at ingestion.
  */
 export const validatePublicSourceImageUrls = async (
   imageUrls: string[],

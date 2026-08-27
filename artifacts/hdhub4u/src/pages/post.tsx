@@ -50,6 +50,9 @@ export default function PostPage() {
     const description = metadata?.editorialSummary ?? post.excerpt;
     const canonicalUrl = `${window.location.origin}${window.location.pathname}`;
     const imageUrl = metadata?.backdropUrl ?? metadata?.posterUrl ?? post.thumbnailUrl;
+    const socialImageUrl = imageUrl
+      ? new URL(imageUrl, window.location.origin).toString()
+      : null;
 
     document.title = pageTitle;
     setMetaTag("name", "description", description);
@@ -59,9 +62,9 @@ export default function PostPage() {
     setMetaTag("property", "og:type", "article");
     setMetaTag("name", "twitter:title", pageTitle);
     setMetaTag("name", "twitter:description", description);
-    if (imageUrl) {
-      setMetaTag("property", "og:image", imageUrl);
-      setMetaTag("name", "twitter:image", imageUrl);
+    if (socialImageUrl) {
+      setMetaTag("property", "og:image", socialImageUrl);
+      setMetaTag("name", "twitter:image", socialImageUrl);
     }
 
     let canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
@@ -80,7 +83,7 @@ export default function PostPage() {
       name: post.title,
       description,
       url: canonicalUrl,
-      image: imageUrl || undefined,
+       image: socialImageUrl || undefined,
       dateCreated: metadata?.releaseDate ?? undefined,
       genre: metadata?.genres.length ? metadata.genres : undefined,
       aggregateRating:
@@ -114,7 +117,7 @@ export default function PostPage() {
 
   if (isLoading) {
     return (
-      <PublicLayout>
+      <PublicLayout fullBleed>
         <div className="dark bg-black min-h-screen pb-24 pt-12">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
             <Skeleton className="h-10 w-32 rounded-full bg-zinc-800" />
@@ -139,7 +142,7 @@ export default function PostPage() {
 
   if (isError || !post) {
     return (
-      <PublicLayout>
+      <PublicLayout fullBleed>
         <div className="dark bg-black min-h-screen flex items-center justify-center p-4">
           <div className="text-center py-24 bg-zinc-950/50 rounded-2xl border border-dashed border-zinc-800 max-w-2xl w-full">
             <h2 className="text-2xl font-bold text-zinc-100 mb-2">Entry not found</h2>
@@ -164,7 +167,7 @@ export default function PostPage() {
   );
 
   return (
-    <PublicLayout>
+    <PublicLayout fullBleed>
       <div className="dark bg-black text-zinc-300 min-h-screen pb-24 selection:bg-primary selection:text-primary-foreground">
         <article className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 md:pt-12">
           {/* Title */}
@@ -206,8 +209,8 @@ export default function PostPage() {
             </div>
           </div>
 
-          {/* Centered Poster */}
-          <div className="flex justify-center mb-12">
+          {/* Centered poster and source screenshots */}
+          <div className="flex justify-center mb-7">
             <div className="w-full max-w-[320px] aspect-[2/3] rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800 shadow-2xl relative">
               <ImageFallback
                 src={t?.posterUrl || post.thumbnailUrl}
@@ -217,9 +220,27 @@ export default function PostPage() {
             </div>
           </div>
 
-          {/* Available Metadata Grid */}
+          {sourceImageUrls && sourceImageUrls.length > 0 && (
+            <section className="mb-8">
+              <h2 className="text-xs uppercase tracking-widest text-zinc-500 mb-4 font-semibold flex items-center">
+                <ImageIcon className="w-4 h-4 mr-2" /> Screenshots
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {sourceImageUrls.map((sourceImageUrl, i) => (
+                  <div key={sourceImageUrl} className="aspect-video bg-zinc-900 rounded-lg overflow-hidden border border-zinc-700/80 hover:border-zinc-500 transition-colors">
+                    <ImageFallback src={sourceImageUrl} alt={`Screenshot ${i + 1}`} className="w-full h-full object-cover" />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           {t && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-8 gap-x-6 mb-16 border-y border-zinc-800/50 py-10">
+            <div className="space-y-3 mb-10">
+              {(t.rating != null || t.runtime != null || t.releaseDate) && (
+                <section className="rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-4 py-4">
+                  <h2 className="text-[11px] uppercase tracking-widest text-zinc-500 mb-3 font-semibold">Release facts</h2>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-5 gap-y-4">
               {t.rating != null && (
                 <div>
                   <div className="text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-semibold flex items-center">
@@ -250,6 +271,13 @@ export default function PostPage() {
                   </div>
                 </div>
               )}
+                  </div>
+                </section>
+              )}
+              {(t.director || language || (t.cast && t.cast.length > 0)) && (
+                <section className="rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-4 py-4">
+                  <h2 className="text-[11px] uppercase tracking-widest text-zinc-500 mb-3 font-semibold">Credits & language</h2>
+                  <div className="grid grid-cols-2 gap-x-5 gap-y-4">
               {t.director && (
                 <div>
                   <div className="text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-semibold flex items-center">
@@ -260,18 +288,33 @@ export default function PostPage() {
                   </div>
                 </div>
               )}
-              {t.cast && t.cast.length > 0 && (
-                <div className="col-span-2 sm:col-span-3 mt-4">
-                  <div className="text-xs uppercase tracking-widest text-zinc-500 mb-4 font-semibold flex items-center">
+                  {language && (
+                    <div>
+                      <div className="text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-semibold flex items-center">
+                        <Globe className="w-3.5 h-3.5 mr-1.5" /> Language
+                      </div>
+                      <div className="text-lg font-medium text-zinc-100">
+                        {language}
+                      </div>
+                    </div>
+                  )}
+                  </div>
+                  {t.cast && t.cast.length > 0 && (
+                    <div className="pt-4 mt-4 border-t border-zinc-800">
+                      <div className="text-xs uppercase tracking-widest text-zinc-500 mb-3 font-semibold flex items-center">
                     <Users className="w-3.5 h-3.5 mr-1.5" /> Cast
                   </div>
-                  <div className="flex flex-wrap gap-x-6 gap-y-4">
+                      <div className="flex flex-wrap gap-x-5 gap-y-3">
                     {t.cast.slice(0, 6).map((actor, idx) => (
                       <div key={idx} className="flex items-center gap-3">
                         {actor.profileUrl ? (
-                          <img src={actor.profileUrl} alt={actor.name} className="w-10 h-10 rounded-full object-cover bg-zinc-900 border border-zinc-800" onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }} />
+                            <div className="w-10 h-10 rounded-full overflow-hidden bg-zinc-900 border border-zinc-800">
+                              <ImageFallback
+                                src={actor.profileUrl}
+                                alt={actor.name}
+                                fallback={<span className="text-xs font-medium text-zinc-500">{actor.name.charAt(0)}</span>}
+                              />
+                            </div>
                         ) : (
                           <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs font-medium text-zinc-500">
                             {actor.name.charAt(0)}
@@ -281,34 +324,10 @@ export default function PostPage() {
                       </div>
                     ))}
                   </div>
-                </div>
+                    </div>
+                  )}
+                </section>
               )}
-               {language && (
-                 <div>
-                   <div className="text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-semibold flex items-center">
-                     <Globe className="w-3.5 h-3.5 mr-1.5" /> Language
-                   </div>
-                   <div className="text-lg font-medium text-zinc-100">
-                     {language}
-                   </div>
-                 </div>
-               )}
-            </div>
-          )}
-
-          {/* Source Screenshot Gallery */}
-          {sourceImageUrls && sourceImageUrls.length > 0 && (
-            <div className="mb-16">
-              <h3 className="text-xs uppercase tracking-widest text-zinc-500 mb-6 font-semibold flex items-center">
-                 <ImageIcon className="w-4 h-4 mr-2" /> Screenshots
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {sourceImageUrls.map((sourceImageUrl, i) => (
-                  <div key={i} className="aspect-video bg-zinc-900 rounded-lg overflow-hidden border border-zinc-800/50 hover:border-zinc-700 transition-colors">
-                    <ImageFallback src={sourceImageUrl} alt={`Screenshot ${i + 1}`} className="w-full h-full object-cover" />
-                  </div>
-                ))}
-              </div>
             </div>
           )}
 
@@ -360,7 +379,11 @@ export default function PostPage() {
                   >
                     <div className="aspect-[2/3] bg-zinc-900 rounded-lg overflow-hidden border border-zinc-800/50 mb-3 relative">
                       {item.posterUrl ? (
-                        <img src={item.posterUrl} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                        <ImageFallback
+                          src={item.posterUrl}
+                          alt={item.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center text-zinc-600">
                           <Film className="w-8 h-8 opacity-20" />

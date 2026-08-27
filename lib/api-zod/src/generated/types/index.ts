@@ -28,6 +28,8 @@ export * from './listAdminPostsStatus';
 export * from './listPostsParams';
 export * from './post';
 export * from './postList';
+export * from './postMediaBackfillInput';
+export * from './postMediaBackfillResult';
 export * from './postUpdate';
 export * from './postUpdateStatus';
 export * from './publicSettings';

@@ -54,12 +54,20 @@ export function PostGrid({ posts, isLoading, title, emptyMessage = "No posts fou
             <Card className="h-full overflow-hidden border-0 shadow-sm bg-black transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5 flex flex-col group">
               <div className="relative aspect-[2/3] overflow-hidden bg-gray-100">
                 {post.thumbnailUrl ? (
-                  <img 
-                    src={post.thumbnailUrl} 
-                    alt={post.title}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    loading="lazy"
-                  />
+                  <>
+                    <div className="absolute inset-0 flex items-center justify-center text-gray-300">
+                      <PlayCircle className="w-12 h-12" />
+                    </div>
+                    <img
+                      src={post.thumbnailUrl}
+                      alt={post.title}
+                      className="relative w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      loading="lazy"
+                      onError={(event) => {
+                        event.currentTarget.style.display = "none";
+                      }}
+                    />
+                  </>
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-gray-300">
                     <PlayCircle className="w-12 h-12" />
