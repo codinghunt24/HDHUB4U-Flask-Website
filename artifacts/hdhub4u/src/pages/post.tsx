@@ -157,7 +157,7 @@ export default function PostPage() {
   }
 
   const t = post.tmdb;
-  const sourceImageUrls = post.sourceImageUrls;
+  const sourceImageUrls = post.sourceImageUrls?.slice(1);
   const language = t?.language;
   const categoryLabels = [post.category.name, ...(t?.genres ?? [])].filter(
     (label, index, labels) =>
