@@ -80,6 +80,31 @@ import {
 const router: IRouter = Router();
 const SESSION_COOKIE = "hdhub4u_admin";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7;
+const DEFAULT_CATEGORY = {
+  name: "Latest",
+  slug: "latest",
+} as const;
+
+const getOrCreateDefaultCategory = async () => {
+  const [existing] = await db
+    .select()
+    .from(categoriesTable)
+    .where(eq(categoriesTable.slug, DEFAULT_CATEGORY.slug))
+    .limit(1);
+  if (existing) return existing;
+
+  await db
+    .insert(categoriesTable)
+    .values(DEFAULT_CATEGORY)
+    .onConflictDoNothing({ target: categoriesTable.slug });
+
+  const [created] = await db
+    .select()
+    .from(categoriesTable)
+    .where(eq(categoriesTable.slug, DEFAULT_CATEGORY.slug))
+    .limit(1);
+  return created;
+};
 
 const cleanText = (value: string) =>
   value
@@ -892,10 +917,7 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
       }
     }
 
-    const [defaultCategory] = await db
-      .select()
-      .from(categoriesTable)
-      .where(eq(categoriesTable.slug, "latest"));
+    const defaultCategory = await getOrCreateDefaultCategory();
     if (!defaultCategory) {
       res.status(500).json({ error: "Default category is missing" });
       return;
@@ -1052,10 +1074,7 @@ router.post("/admin/import", async (req, res): Promise<void> => {
     return;
   }
 
-  const [defaultCategory] = await db
-    .select()
-    .from(categoriesTable)
-    .where(eq(categoriesTable.slug, "latest"));
+  const defaultCategory = await getOrCreateDefaultCategory();
   if (!defaultCategory) {
     res.status(500).json({ error: "Default category is missing" });
     return;
