@@ -1,7 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
-import { type LookupFunction } from "node:net";
 import { Router, type IRouter, type Request } from "express";
 import {
   AdminLoginBody,
@@ -11,6 +10,8 @@ import {
   DiscoverSitemapsResponse,
   EnrichAdminTmdbPostsBody,
   EnrichAdminTmdbPostsResponse,
+  RefreshAdminPostSourceImagesBody,
+  RefreshAdminPostSourceImagesResponse,
   GetAdminSessionResponse,
   GetAdminSettingsResponse,
   GetAdminTmdbApiKeyResponse,
@@ -52,6 +53,7 @@ import {
 } from "@workspace/db/tmdb-category";
 import {
   and,
+  asc,
   count,
   desc,
   eq,
@@ -62,6 +64,9 @@ import {
 } from "drizzle-orm";
 import {
   SITEMAP_BATCH_SIZE,
+  SOURCE_IMAGE_LIMIT,
+  extractSourceImageUrls,
+  createPinnedLookup,
   extractXmlLocations,
   getNextSitemapOffset,
   getSitemapId,
@@ -70,6 +75,7 @@ import {
   parseExternalUrl,
   persistSitemapCandidates,
   resolvePublicDestination,
+  validatePublicSourceImageUrls,
   type SitemapCandidate,
 } from "../lib/sitemap-import";
 import { getCandidateResolutionUpdate } from "../lib/tmdb-import-update";
@@ -195,23 +201,26 @@ const PAGE_FETCH_CONCURRENCY = 5;
 const SITEMAP_FETCH_CONCURRENCY = 4;
 const MAX_SOURCE_REDIRECTS = 5;
 const MAX_SOURCE_BYTES = 12 * 1024 * 1024;
+const MAX_SOURCE_IMAGE_BYTES = 8 * 1024 * 1024;
+const ALLOWED_SOURCE_IMAGE_TYPES = new Set([
+  "image/avif",
+  "image/gif",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
 
-const requestSourceText = async (
+const requestSource = async (
   url: URL,
   destination: { address: string; family: number },
+  maxBytes: number,
 ) =>
   new Promise<{
     statusCode: number;
     location: string | null;
-    body: string;
+    contentType: string | null;
+    body: Buffer;
   }>((resolve, reject) => {
-    const boundLookup: LookupFunction = (_hostname, options, callback) => {
-      if (typeof options === "object" && options.all) {
-        callback(null, [destination]);
-        return;
-      }
-      callback(null, destination.address, destination.family);
-    };
     const request = (url.protocol === "https:" ? httpsRequest : httpRequest)(
       url,
       {
@@ -220,14 +229,19 @@ const requestSourceText = async (
           "user-agent": IMPORT_USER_AGENT,
           "accept-encoding": "identity",
         },
-        lookup: boundLookup,
+        lookup: createPinnedLookup(destination),
       },
       (response) => {
+        const contentLength = Number(response.headers["content-length"]);
+        if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+          request.destroy(new Error("Source response is too large"));
+          return;
+        }
         const chunks: Buffer[] = [];
         let receivedBytes = 0;
         response.on("data", (chunk: Buffer) => {
           receivedBytes += chunk.length;
-          if (receivedBytes > MAX_SOURCE_BYTES) {
+          if (receivedBytes > maxBytes) {
             request.destroy(new Error("Source response is too large"));
             return;
           }
@@ -239,7 +253,11 @@ const requestSourceText = async (
             statusCode: response.statusCode ?? 0,
             location:
               typeof locationHeader === "string" ? locationHeader : null,
-            body: Buffer.concat(chunks).toString("utf8"),
+            contentType:
+              typeof response.headers["content-type"] === "string"
+                ? response.headers["content-type"]
+                : null,
+            body: Buffer.concat(chunks),
           });
         });
       },
@@ -250,6 +268,14 @@ const requestSourceText = async (
     request.on("error", reject);
     request.end();
   });
+
+const requestSourceText = async (
+  url: URL,
+  destination: { address: string; family: number },
+) => {
+  const response = await requestSource(url, destination, MAX_SOURCE_BYTES);
+  return { ...response, body: response.body.toString("utf8") };
+};
 
 const fetchSourceText = async (url: URL) => {
   let currentUrl = url;
@@ -272,6 +298,40 @@ const fetchSourceText = async (url: URL) => {
       throw new Error(`Source returned ${response.statusCode}`);
     }
     return response.body;
+  }
+  throw new Error("Source redirected too many times");
+};
+
+const fetchSourceImage = async (url: URL) => {
+  let currentUrl = url;
+  for (
+    let redirectCount = 0;
+    redirectCount <= MAX_SOURCE_REDIRECTS;
+    redirectCount += 1
+  ) {
+    const destination = await resolvePublicDestination(currentUrl);
+    const response = await requestSource(
+      currentUrl,
+      destination,
+      MAX_SOURCE_IMAGE_BYTES,
+    );
+    if (response.statusCode >= 300 && response.statusCode < 400) {
+      if (!response.location || redirectCount === MAX_SOURCE_REDIRECTS) {
+        throw new Error("Source redirected too many times");
+      }
+      currentUrl = parseExternalUrl(
+        new URL(response.location, currentUrl).toString(),
+      );
+      continue;
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw new Error(`Source returned ${response.statusCode}`);
+    }
+    const contentType = response.contentType?.split(";")[0]?.toLowerCase();
+    if (!contentType || !ALLOWED_SOURCE_IMAGE_TYPES.has(contentType)) {
+      throw new Error("Source did not return an allowed image type");
+    }
+    return { body: response.body, contentType };
   }
   throw new Error("Source redirected too many times");
 };
@@ -475,6 +535,15 @@ const getTmdbPersistenceFields = (candidate: SitemapCandidate) => ({
   tmdbEnrichedAt: candidate.tmdbEnrichedAt ?? null,
 });
 
+const getValidExternalImageUrl = (value: string | null, baseUrl: URL) => {
+  if (!value) return null;
+  try {
+    return parseExternalUrl(new URL(value, baseUrl).toString()).toString();
+  } catch {
+    return null;
+  }
+};
+
 const parsePostPage = async (
   url: URL,
   resolveTitle: (parsedTitle: ParsedScrapedTitle) => Promise<ResolvedTitle>,
@@ -495,6 +564,9 @@ const parsePostPage = async (
       /<img\b[^>]*(?:src|data-src|data-lazy-src)=["']([^"']+)["'][^>]*>/i,
     )?.[1] ??
     null;
+  const sourceImageUrls = await validatePublicSourceImageUrls(
+    extractSourceImageUrls(html, url),
+  );
   const lastPathSegment =
     url.pathname.split("/").filter(Boolean).pop() ?? "Imported post";
   const fallbackTitle = (() => {
@@ -512,9 +584,11 @@ const parsePostPage = async (
   );
   return {
     ...(await resolvePostTmdb(parsedTitle, resolveTitle, apiKey)),
-    thumbnailUrl: image
-      ? new URL(image, url).toString()
-      : "/editorial-streaming.jpg",
+    thumbnailUrl:
+      getValidExternalImageUrl(image, url) ??
+      sourceImageUrls[0] ??
+      "/editorial-streaming.jpg",
+    sourceImageUrls,
   };
 };
 
@@ -551,6 +625,11 @@ const categoryShape = (
   postCount = 0,
 ) => ({ ...row, postCount });
 
+const normalizeTmdbMetadata = (metadata: Record<string, unknown>) => ({
+  ...metadata,
+  language: typeof metadata.language === "string" ? metadata.language : null,
+});
+
 const postShape = (row: {
   id: number;
   title: string;
@@ -567,6 +646,7 @@ const postShape = (row: {
   tmdbEnrichmentStatus: string;
   slug: string;
   thumbnailUrl: string;
+  sourceImageUrls: string[] | null;
   excerpt: string;
   sourceUrl: string | null;
   sourceDomain: string;
@@ -583,6 +663,10 @@ const postShape = (row: {
     title: publicTitle,
     slug: row.slug,
     thumbnailUrl: row.thumbnailUrl,
+    sourceImageUrls: (row.sourceImageUrls ?? []).map(
+      (_sourceImageUrl, index) =>
+        `/api/source-images/${encodeURIComponent(row.slug)}/${index}`,
+    ),
     excerpt: cleanImportedExcerpt(row.excerpt, publicTitle),
     sourceUrl: row.sourceUrl,
     category: categoryShape(
@@ -594,7 +678,7 @@ const postShape = (row: {
       Number(row.categoryPostCount),
     ),
     publishedAt: row.publishedAt,
-    ...(row.tmdbMetadata ? { tmdb: row.tmdbMetadata } : {}),
+    ...(row.tmdbMetadata ? { tmdb: normalizeTmdbMetadata(row.tmdbMetadata) } : {}),
   };
 };
 
@@ -635,6 +719,8 @@ const postSelection = {
   tmdbEnrichmentStatus: postsTable.tmdbEnrichmentStatus,
   slug: postsTable.slug,
   thumbnailUrl: postsTable.thumbnailUrl,
+  sourceImageUrls: postsTable.sourceImageUrls,
+  sourceImagesRefreshedAt: postsTable.sourceImagesRefreshedAt,
   excerpt: postsTable.excerpt,
   sourceUrl: postsTable.sourceUrl,
   sourceDomain: postsTable.sourceDomain,
@@ -715,6 +801,51 @@ router.get("/posts/:slug", async (req, res): Promise<void> => {
     return;
   }
   res.json(GetPostResponse.parse(postShape(row)));
+});
+
+router.get("/source-images/:slug/:index", async (req, res): Promise<void> => {
+  const params = GetPostParams.safeParse({ slug: req.params.slug });
+  const index = Number(req.params.index);
+  if (
+    !params.success ||
+    !Number.isInteger(index) ||
+    index < 0 ||
+    index >= SOURCE_IMAGE_LIMIT
+  ) {
+    res.status(400).json({ error: "Invalid source image request" });
+    return;
+  }
+
+  const [post] = await db
+    .select({
+      sourceImageUrls: postsTable.sourceImageUrls,
+    })
+    .from(postsTable)
+    .where(
+      and(
+        eq(postsTable.slug, params.data.slug),
+        eq(postsTable.published, true),
+      ),
+    )
+    .limit(1);
+  const sourceImageUrl = post?.sourceImageUrls?.[index];
+  if (!sourceImageUrl) {
+    res.status(404).json({ error: "Source image not found" });
+    return;
+  }
+
+  try {
+    const image = await fetchSourceImage(parseExternalUrl(sourceImageUrl));
+    res.set({
+      "Cache-Control": "public, max-age=3600",
+      "Content-Type": image.contentType,
+      "X-Content-Type-Options": "nosniff",
+    });
+    res.send(image.body);
+  } catch (error) {
+    req.log.warn({ err: error, slug: params.data.slug, index }, "Source image proxy failed");
+    res.status(502).json({ error: "Source image is unavailable" });
+  }
 });
 
 router.get("/categories", async (_req, res): Promise<void> => {
@@ -1057,6 +1188,71 @@ router.post("/admin/tmdb/enrich", async (req, res): Promise<void> => {
   res.json(EnrichAdminTmdbPostsResponse.parse(results));
 });
 
+router.post(
+  "/admin/posts/source-images/refresh",
+  async (req, res): Promise<void> => {
+    if (!(await requireAdmin(req))) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const parsed = RefreshAdminPostSourceImagesBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+
+    const limit = Math.min(25, Math.max(1, Math.floor(parsed.data.limit ?? 10)));
+    const candidates = await db
+      .select({
+        id: postsTable.id,
+        sourceUrl: postsTable.sourceUrl,
+      })
+      .from(postsTable)
+      .where(sql`${postsTable.sourceUrl} IS NOT NULL`)
+      .orderBy(
+        sql`case when ${postsTable.sourceImagesRefreshedAt} is null then 0 else 1 end`,
+        asc(postsTable.sourceImagesRefreshedAt),
+        desc(postsTable.publishedAt),
+      )
+      .limit(limit);
+    const results = { attempted: 0, refreshed: 0, failed: 0 };
+
+    for (const candidate of candidates) {
+      if (!candidate.sourceUrl) continue;
+      results.attempted += 1;
+      const refreshedAt = new Date();
+      try {
+        const sourceUrl = parseExternalUrl(candidate.sourceUrl);
+        const html = await fetchSourceText(sourceUrl);
+        await db
+          .update(postsTable)
+          .set({
+            sourceImageUrls: await validatePublicSourceImageUrls(
+              extractSourceImageUrls(html, sourceUrl),
+            ),
+            sourceImagesRefreshedAt: refreshedAt,
+          })
+          .where(eq(postsTable.id, candidate.id));
+        results.refreshed += 1;
+      } catch (error) {
+        req.log.warn(
+          { err: error, postId: candidate.id },
+          "Source image refresh failed for post",
+        );
+        // Record the attempt so one unavailable source cannot block the rest
+        // of the backfill queue indefinitely.
+        await db
+          .update(postsTable)
+          .set({ sourceImagesRefreshedAt: refreshedAt })
+          .where(eq(postsTable.id, candidate.id));
+        results.failed += 1;
+      }
+    }
+
+    res.json(RefreshAdminPostSourceImagesResponse.parse(results));
+  },
+);
+
 router.post("/admin/sitemaps/discover", async (req, res): Promise<void> => {
   if (!(await requireAdmin(req))) {
     res.status(401).json({ error: "Unauthorized" });
@@ -1226,6 +1422,7 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
             ...getTmdbPersistenceFields(candidate),
             slug: `${slugify(candidate.title)}-${Date.now().toString(36)}-${offset + candidateIndex}`,
             thumbnailUrl: candidate.thumbnailUrl,
+            sourceImageUrls: candidate.sourceImageUrls ?? [],
             excerpt: buildImportedExcerpt(candidate.title),
             sourceUrl: candidate.url,
             sourceDomain: sitemapUrl.hostname,
@@ -1258,6 +1455,7 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
           tmdbMetadata?: Record<string, unknown> | null;
           tmdbEnrichmentStatus?: string;
           tmdbEnrichedAt?: Date | null;
+          sourceImageUrls?: string[];
           categoryId?: number;
         } = {};
         if (candidate.publishedAt) {
@@ -1278,6 +1476,9 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
         );
         if (!existing?.sourceTitle && candidate.sourceTitle) {
           duplicateUpdate.sourceTitle = candidate.sourceTitle;
+        }
+        if (candidate.sourceImageUrls?.length) {
+          duplicateUpdate.sourceImageUrls = candidate.sourceImageUrls;
         }
         const tmdbCategory = await getCategoryForTmdbCandidate(candidate);
         if (tmdbCategory) duplicateUpdate.categoryId = tmdbCategory.id;
@@ -1432,15 +1633,33 @@ router.post("/admin/import", async (req, res): Promise<void> => {
     const resolvedBatch = await Promise.all(
       parsedCandidates
         .slice(index, index + PAGE_FETCH_CONCURRENCY)
-        .map(async (candidate) => ({
-          url: candidate.url,
-          thumbnailUrl: candidate.thumbnailUrl,
-          ...(await resolvePostTmdb(
-            candidate.parsedTitle,
-            resolveTitle,
-            tmdbApiKey,
-          )),
-        })),
+        .map(async (candidate) => {
+          try {
+            return {
+              url: candidate.url,
+              ...(await parsePostPage(
+                parseExternalUrl(candidate.url),
+                resolveTitle,
+                tmdbApiKey,
+              )),
+            };
+          } catch (error) {
+            req.log.warn(
+              { err: error, postUrl: candidate.url },
+              "Direct import post fetch failed",
+            );
+            return {
+              url: candidate.url,
+              thumbnailUrl: candidate.thumbnailUrl,
+              sourceImageUrls: [],
+              ...(await resolvePostTmdb(
+                candidate.parsedTitle,
+                resolveTitle,
+                tmdbApiKey,
+              )),
+            };
+          }
+        }),
     );
     candidates.push(...resolvedBatch);
   }
@@ -1483,6 +1702,9 @@ router.post("/admin/import", async (req, res): Promise<void> => {
             candidate,
             existing.tmdbEnrichmentStatus,
           ),
+          ...(candidate.sourceImageUrls?.length
+            ? { sourceImageUrls: candidate.sourceImageUrls }
+            : {}),
           ...(!existing.sourceTitle && candidate.sourceTitle
             ? { sourceTitle: candidate.sourceTitle }
             : {}),
@@ -1514,6 +1736,7 @@ router.post("/admin/import", async (req, res): Promise<void> => {
         ...getTmdbPersistenceFields(candidate),
         slug: uniqueSlug,
         thumbnailUrl: candidate.thumbnailUrl,
+        sourceImageUrls: candidate.sourceImageUrls ?? [],
         excerpt: buildImportedExcerpt(candidate.title),
         sourceUrl: candidate.url,
         sourceDomain: hostname,

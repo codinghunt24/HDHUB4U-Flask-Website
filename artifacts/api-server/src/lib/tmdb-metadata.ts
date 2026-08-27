@@ -10,6 +10,7 @@ export type TmdbCatalogMetadata = {
   releaseDate: string | null;
   year: number | null;
   runtime: number | null;
+  language: string | null;
   genres: string[];
   rating: number | null;
   voteCount: number | null;
@@ -46,6 +47,7 @@ type TmdbDetailResponse = {
   first_air_date?: string;
   runtime?: number | null;
   episode_run_time?: number[];
+  original_language?: string;
   genres?: Array<{ name?: string }>;
   vote_average?: number;
   vote_count?: number;
@@ -104,6 +106,34 @@ const uniqueText = (values: Array<string | undefined | null>, limit: number) =>
     0,
     limit,
   );
+
+const languageNames: Record<string, string> = {
+  bn: "Bengali",
+  de: "German",
+  en: "English",
+  es: "Spanish",
+  fr: "French",
+  hi: "Hindi",
+  it: "Italian",
+  ja: "Japanese",
+  kn: "Kannada",
+  ko: "Korean",
+  ml: "Malayalam",
+  mr: "Marathi",
+  pa: "Punjabi",
+  pt: "Portuguese",
+  ru: "Russian",
+  ta: "Tamil",
+  te: "Telugu",
+  ur: "Urdu",
+  zh: "Chinese",
+};
+
+const getLanguageName = (languageCode: string | undefined) => {
+  const normalizedCode = languageCode?.trim().toLowerCase();
+  if (!normalizedCode) return null;
+  return languageNames[normalizedCode] ?? normalizedCode.toUpperCase();
+};
 
 export const buildEditorialSummary = (
   metadata: Pick<
@@ -212,6 +242,7 @@ export const fetchTmdbCatalogMetadata = async (
     releaseDate: releaseDate ?? null,
     year: getYear(releaseDate),
     runtime,
+    language: getLanguageName(response.original_language),
     genres: uniqueText(response.genres?.map((genre) => genre.name) ?? [], 6),
     rating:
       typeof response.vote_average === "number"

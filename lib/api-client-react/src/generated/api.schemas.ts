@@ -62,6 +62,8 @@ export interface TmdbMetadata {
   year: number | null;
   /** @nullable */
   runtime: number | null;
+  /** @nullable */
+  language: string | null;
   genres: string[];
   /** @nullable */
   rating: number | null;
@@ -97,6 +99,7 @@ export interface Post {
   title: string;
   slug: string;
   thumbnailUrl: string;
+  sourceImageUrls: string[];
   excerpt: string;
   /** @nullable */
   sourceUrl?: string | null;
@@ -206,6 +209,20 @@ export interface TmdbEnrichmentResult {
   review: number;
   unmatched: number;
   unavailable: number;
+  failed: number;
+}
+
+export interface SourceImageRefreshInput {
+  /**
+     * @minimum 1
+     * @maximum 25
+     */
+  limit?: number;
+}
+
+export interface SourceImageRefreshResult {
+  attempted: number;
+  refreshed: number;
   failed: number;
 }
 

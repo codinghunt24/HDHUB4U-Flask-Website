@@ -1,10 +1,10 @@
 import { getGetPostQueryKey, useGetPost } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { PublicLayout } from "@/components/layout/public-layout";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, PlayCircle, ExternalLink, ChevronLeft, Star, Clock, Film, Quote } from "lucide-react";
+import { Calendar, PlayCircle, ExternalLink, Star, Clock, Film, Quote, Globe, Users, Clapperboard, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const setMetaTag = (
@@ -23,14 +23,17 @@ const setMetaTag = (
   element.content = content;
 };
 
-const formatCurrency = (value: number | null) =>
-  value == null || value <= 0
-    ? "Not reported"
-    : new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-        maximumFractionDigits: 0,
-      }).format(value);
+const ImageFallback = ({ src, alt, fallback, className }: { src: string | null | undefined, alt: string, fallback?: React.ReactNode, className?: string }) => {
+  const [error, setError] = useState(false);
+  if (!src || error) {
+    return (
+      <div className={`flex items-center justify-center w-full h-full bg-zinc-900 ${className || ''}`}>
+        {fallback || <ImageIcon className="w-8 h-8 text-zinc-700" />}
+      </div>
+    );
+  }
+  return <img src={src} alt={alt} className={`w-full h-full object-cover ${className || ''}`} onError={() => setError(true)} loading="lazy" />;
+};
 
 export default function PostPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -112,16 +115,21 @@ export default function PostPage() {
   if (isLoading) {
     return (
       <PublicLayout>
-        <div className="max-w-6xl mx-auto px-4 py-12 space-y-12 animate-pulse">
-          <Skeleton className="h-10 w-32 rounded-full" />
-          <div className="flex flex-col md:flex-row gap-12">
-            <Skeleton className="w-full md:w-[300px] aspect-[2/3] rounded-xl shrink-0" />
-            <div className="flex-1 space-y-6">
-              <Skeleton className="h-16 w-3/4" />
-              <Skeleton className="h-6 w-1/4" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-5/6" />
+        <div className="dark bg-black min-h-screen pb-24 pt-12">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+            <Skeleton className="h-10 w-32 rounded-full bg-zinc-800" />
+            <div className="flex flex-col items-center gap-8">
+              <Skeleton className="h-12 w-3/4 max-w-lg bg-zinc-800" />
+              <div className="flex gap-2">
+                <Skeleton className="h-6 w-20 bg-zinc-800" />
+                <Skeleton className="h-6 w-24 bg-zinc-800" />
+              </div>
+              <Skeleton className="w-full max-w-[320px] aspect-[2/3] rounded-xl bg-zinc-800" />
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 py-8 border-y border-zinc-800">
+              <Skeleton className="h-16 w-full bg-zinc-800" />
+              <Skeleton className="h-16 w-full bg-zinc-800" />
+              <Skeleton className="h-16 w-full bg-zinc-800" />
             </div>
           </div>
         </div>
@@ -132,316 +140,258 @@ export default function PostPage() {
   if (isError || !post) {
     return (
       <PublicLayout>
-        <div className="text-center py-24 bg-card rounded-2xl border border-dashed border-border shadow-sm max-w-2xl mx-auto my-12">
-          <h2 className="text-2xl font-bold text-foreground mb-2">Post not found</h2>
-          <p className="text-muted-foreground mb-6">The post you are looking for does not exist or has been removed.</p>
-          <Link href="/">
-            <Button>Return Home</Button>
-          </Link>
+        <div className="dark bg-black min-h-screen flex items-center justify-center p-4">
+          <div className="text-center py-24 bg-zinc-950/50 rounded-2xl border border-dashed border-zinc-800 max-w-2xl w-full">
+            <h2 className="text-2xl font-bold text-zinc-100 mb-2">Entry not found</h2>
+            <p className="text-zinc-500 mb-6">The catalog entry you are looking for does not exist or has been removed.</p>
+            <Link href="/">
+              <Button variant="outline" className="border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800">Return to Catalog</Button>
+            </Link>
+          </div>
         </div>
       </PublicLayout>
     );
   }
 
   const t = post.tmdb;
+  const sourceImageUrls = post.sourceImageUrls;
+  const language = t?.language;
+  const categoryLabels = [post.category.name, ...(t?.genres ?? [])].filter(
+    (label, index, labels) =>
+      labels.findIndex(
+        (candidate) => candidate.toLowerCase() === label.toLowerCase(),
+      ) === index,
+  );
 
-  if (t) {
-    return (
-      <PublicLayout>
-        <article className="pb-24">
-          {/* Hero Backdrop */}
-          {t.backdropUrl ? (
-            <div className="relative w-full h-[50vh] min-h-[400px] bg-black overflow-hidden">
-              <img 
-                src={t.backdropUrl} 
-                alt={t.title} 
-                className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-screen"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/90 to-transparent" />
-              <div className="absolute inset-0 bg-gradient-to-r from-background via-background/40 to-transparent" />
-            </div>
-          ) : (
-            <div className="w-full h-32 bg-secondary" />
-          )}
-
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-32 relative z-10">
-            <Link href="/">
-              <Button variant="ghost" size="sm" className="mb-6 -ml-3 text-foreground hover:bg-black/5 dark:hover:bg-white/10 backdrop-blur-sm">
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                Back to Catalog
-              </Button>
-            </Link>
-
-            <div className="flex flex-col md:flex-row gap-8 lg:gap-12 items-start">
-              {/* Left Column - Poster & Primary Actions */}
-              <div className="w-full md:w-[300px] shrink-0 space-y-6">
-                <div className="rounded-xl overflow-hidden shadow-2xl border border-border/50 bg-card aspect-[2/3] relative">
-                  {t.posterUrl ? (
-                    <img src={t.posterUrl} alt={t.title} className="w-full h-full object-cover" />
-                  ) : post.thumbnailUrl ? (
-                    <img src={post.thumbnailUrl} alt={post.title} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground bg-muted">
-                      <Film className="w-16 h-16 mb-4 opacity-20" />
-                    </div>
-                  )}
-                </div>
-                
-                {t.trailerUrl && (
-                  <div className="space-y-3">
-                    <a href={t.trailerUrl} target="_blank" rel="noopener noreferrer" className="block w-full">
-                      <Button size="lg" className="w-full font-bold shadow-lg shadow-primary/20 bg-primary text-primary-foreground hover:bg-primary/90">
-                        <PlayCircle className="w-5 h-5 mr-2" />
-                        View Official Trailer
-                      </Button>
-                    </a>
-                  </div>
-                )}
-
-                <div className="p-5 rounded-xl bg-card border border-border space-y-4 text-sm shadow-sm">
-                  {t.rating != null && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Rating</span>
-                      <div className="flex items-center font-medium text-foreground">
-                        <Star className="w-4 h-4 text-amber-500 fill-amber-500 mr-1.5" />
-                        {t.rating.toFixed(1)} <span className="text-muted-foreground font-normal ml-1">({t.voteCount})</span>
-                      </div>
-                    </div>
-                  )}
-                  {t.runtime != null && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Runtime</span>
-                      <div className="flex items-center font-medium text-foreground">
-                        <Clock className="w-4 h-4 mr-1.5 opacity-70" />
-                        {t.runtime} min
-                      </div>
-                    </div>
-                  )}
-                  {t.releaseDate && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Release</span>
-                      <div className="flex items-center font-medium text-foreground">
-                        <Calendar className="w-4 h-4 mr-1.5 opacity-70" />
-                        {new Date(t.releaseDate).getFullYear()}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Right Column - Info */}
-              <div className="flex-1 space-y-8 pt-4 md:pt-16">
-                <div className="space-y-4">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <Link href={`/category/${post.category.slug}`}>
-                      <Badge className="bg-primary text-primary-foreground hover:bg-primary/90 border-0 cursor-pointer">
-                        {post.category.name}
-                      </Badge>
-                    </Link>
-                    <Badge className="bg-secondary text-secondary-foreground hover:bg-secondary/80 border-0">
-                      {t.mediaType === 'movie' ? 'Movie' : 'Series'}
-                    </Badge>
-                    {t.genres.map(g => (
-                      <Badge key={g} variant="outline" className="text-muted-foreground border-border">
-                        {g}
-                      </Badge>
-                    ))}
-                  </div>
-                  
-                  <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold text-foreground leading-tight">
-                    {post.title}
-                    {t.year && <span className="text-muted-foreground font-normal ml-3">({t.year})</span>}
-                  </h1>
-                  
-                  {t.tagline && (
-                    <p className="text-xl md:text-2xl font-serif italic text-muted-foreground">
-                      "{t.tagline}"
-                    </p>
-                  )}
-                </div>
-
-                <div className="prose prose-lg prose-slate dark:prose-invert max-w-none">
-                  <h3 className="font-display font-semibold text-2xl mb-4">Editorial Summary</h3>
-                  <p className="text-lg leading-relaxed text-foreground/90 font-serif drop-cap">
-                    {t.editorialSummary}
-                  </p>
-                </div>
-
-                {t.director && (
-                  <div className="pt-6 border-t border-border">
-                    <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-2">Director</h4>
-                    <p className="text-lg font-medium text-foreground">{t.director}</p>
-                  </div>
-                )}
-
-                {t.cast && t.cast.length > 0 && (
-                  <div className="pt-6 border-t border-border">
-                    <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">Top Cast</h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                      {t.cast.slice(0, 6).map((actor, idx) => (
-                        <div key={idx} className="flex items-center gap-3">
-                          {actor.profileUrl ? (
-                            <img src={actor.profileUrl} alt={actor.name} className="w-12 h-12 rounded-full object-cover bg-muted" />
-                          ) : (
-                            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-muted-foreground font-medium text-xs">
-                              {actor.name.charAt(0)}
-                            </div>
-                          )}
-                          <div className="text-sm">
-                            <p className="font-medium text-foreground">{actor.name}</p>
-                            {actor.character && <p className="text-muted-foreground truncate max-w-[120px]" title={actor.character}>{actor.character}</p>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {(t.revenue != null || t.budget != null || t.keywords.length > 0) && (
-                  <section className="pt-6 border-t border-border">
-                    <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">Catalog facts</h4>
-                    {t.mediaType === "movie" && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="rounded-xl border border-border bg-card px-4 py-3">
-                          <p className="text-xs uppercase tracking-wide text-muted-foreground">Revenue</p>
-                          <p className="mt-1 font-semibold text-foreground">{formatCurrency(t.revenue)}</p>
-                        </div>
-                        <div className="rounded-xl border border-border bg-card px-4 py-3">
-                          <p className="text-xs uppercase tracking-wide text-muted-foreground">Budget</p>
-                          <p className="mt-1 font-semibold text-foreground">{formatCurrency(t.budget)}</p>
-                        </div>
-                      </div>
-                    )}
-                    {t.keywords.length > 0 && (
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {t.keywords.map((keyword) => (
-                          <span key={keyword} className="rounded-full bg-secondary px-3 py-1 text-xs text-secondary-foreground">
-                            {keyword}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </section>
-                )}
-
-                {t.related.length > 0 && (
-                  <section className="pt-6 border-t border-border">
-                    <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">More to explore</h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                      {t.related.map((item) => (
-                        <a
-                          key={`${item.mediaType}-${item.id}`}
-                          href={`https://www.themoviedb.org/${item.mediaType}/${item.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="group overflow-hidden rounded-xl border border-border bg-card transition-transform hover:-translate-y-1"
-                        >
-                          <div className="aspect-[2/3] bg-secondary">
-                            {item.posterUrl && (
-                              <img src={item.posterUrl} alt="" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                            )}
-                          </div>
-                          <div className="p-3">
-                            <p className="line-clamp-2 text-sm font-semibold text-foreground">{item.title}</p>
-                            {item.year && <p className="mt-1 text-xs text-muted-foreground">{item.year}</p>}
-                          </div>
-                        </a>
-                      ))}
-                    </div>
-                  </section>
-                )}
-
-                <div className="pt-6">
-                  <div className="p-6 rounded-2xl bg-card border border-border shadow-sm relative overflow-hidden group">
-                    <Quote className="absolute -top-2 -right-2 w-24 h-24 text-primary/5 -rotate-12 group-hover:scale-110 transition-transform duration-500" />
-                    <h4 className="font-display font-semibold text-lg mb-2 relative z-10 text-foreground">Editorial catalog note</h4>
-                    <p className="text-muted-foreground leading-relaxed text-sm relative z-10">
-                      {post.excerpt}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground pt-8 border-t border-border">
-                  {t.imdbId && (
-                    <a href={`https://www.imdb.com/title/${t.imdbId}`} target="_blank" rel="noopener noreferrer" className="flex items-center hover:text-primary transition-colors">
-                      <ExternalLink className="w-3 h-3 mr-1" /> IMDB
-                    </a>
-                  )}
-                  {t.tmdbUrl && (
-                    <a href={t.tmdbUrl} target="_blank" rel="noopener noreferrer" className="flex items-center hover:text-primary transition-colors">
-                      <ExternalLink className="w-3 h-3 mr-1" /> TMDB
-                    </a>
-                  )}
-                  <span className="ml-auto opacity-50">{t.attribution}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </article>
-      </PublicLayout>
-    );
-  }
-
-  // Fallback for posts without TMDB metadata
   return (
     <PublicLayout>
-      <div className="max-w-4xl mx-auto px-4 py-12">
-        <Link href="/">
-          <Button variant="ghost" size="sm" className="mb-6 -ml-3 text-muted-foreground hover:text-foreground">
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            Back to Catalog
-          </Button>
-        </Link>
+      <div className="dark bg-black text-zinc-300 min-h-screen pb-24 selection:bg-primary selection:text-primary-foreground">
+        <article className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 md:pt-12">
+          {/* Title */}
+          <div className="text-center mb-6">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold text-white leading-tight mb-6">
+              {post.title}
+              {t?.year && <span className="text-zinc-500 font-normal ml-3">({t.year})</span>}
+            </h1>
 
-        <div className="mb-10 space-y-4 text-center">
-          <div className="flex items-center justify-center gap-3">
-            <Link href={`/category/${post.category.slug}`}>
-              <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-0 text-sm py-1 px-3">
-                {post.category.name}
-              </Badge>
-            </Link>
-            <div className="flex items-center text-sm text-muted-foreground font-medium">
-              <Calendar className="w-4 h-4 mr-1.5" />
-              {new Date(post.publishedAt).toLocaleDateString("en-US", {
-                month: "long",
-                day: "numeric",
-                year: "numeric"
-              })}
+            {/* Category labels */}
+            <div className="flex flex-wrap items-center justify-center gap-2 mb-10">
+              {categoryLabels.map((label) =>
+                label === post.category.name ? (
+                  <Link key={label} href={`/category/${post.category.slug}`}>
+                    <Badge className="bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border-0 cursor-pointer text-sm py-1 px-3 transition-colors">
+                      {label}
+                    </Badge>
+                  </Link>
+                ) : (
+                  <Badge
+                    key={label}
+                    variant="outline"
+                    className="text-zinc-400 border-zinc-800 text-sm py-1 px-3"
+                  >
+                    {label}
+                  </Badge>
+                ),
+              )}
+              {!t && (
+                <Badge variant="outline" className="text-zinc-400 border-zinc-800 text-sm py-1 px-3 flex items-center">
+                  <Calendar className="w-3 h-3 mr-1.5" />
+                  {new Date(post.publishedAt).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric"
+                  })}
+                </Badge>
+              )}
             </div>
           </div>
-          
-          <h1 className="text-3xl md:text-5xl font-display font-bold text-foreground leading-tight max-w-3xl mx-auto">
-            {post.title}
-          </h1>
-        </div>
 
-        <div className="relative w-full max-w-[320px] mx-auto aspect-[2/3] rounded-2xl overflow-hidden bg-card shadow-2xl mb-12 border border-border">
-          {post.thumbnailUrl ? (
-            <img 
-              src={post.thumbnailUrl} 
-              alt={post.title}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground bg-muted">
-              <Film className="w-16 h-16 mb-4 opacity-20" />
-              <span className="font-medium">No media available</span>
+          {/* Centered Poster */}
+          <div className="flex justify-center mb-12">
+            <div className="w-full max-w-[320px] aspect-[2/3] rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800 shadow-2xl relative">
+              <ImageFallback
+                src={t?.posterUrl || post.thumbnailUrl}
+                alt={post.title}
+                fallback={<Film className="w-16 h-16 opacity-20 text-zinc-500" />}
+              />
+            </div>
+          </div>
+
+          {/* Available Metadata Grid */}
+          {t && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-8 gap-x-6 mb-16 border-y border-zinc-800/50 py-10">
+              {t.rating != null && (
+                <div>
+                  <div className="text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-semibold flex items-center">
+                    <Star className="w-3.5 h-3.5 mr-1.5" /> Rating
+                  </div>
+                  <div className="text-lg font-medium text-zinc-100">
+                    {t.rating.toFixed(1)} <span className="text-sm text-zinc-500 font-normal ml-1">({t.voteCount})</span>
+                  </div>
+                </div>
+              )}
+              {t.runtime != null && (
+                <div>
+                  <div className="text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-semibold flex items-center">
+                    <Clock className="w-3.5 h-3.5 mr-1.5" /> Runtime
+                  </div>
+                  <div className="text-lg font-medium text-zinc-100">
+                    {t.runtime} min
+                  </div>
+                </div>
+              )}
+              {t.releaseDate && (
+                <div>
+                  <div className="text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-semibold flex items-center">
+                    <Calendar className="w-3.5 h-3.5 mr-1.5" /> Release
+                  </div>
+                  <div className="text-lg font-medium text-zinc-100">
+                    {new Date(t.releaseDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </div>
+                </div>
+              )}
+              {t.director && (
+                <div>
+                  <div className="text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-semibold flex items-center">
+                    <Clapperboard className="w-3.5 h-3.5 mr-1.5" /> Director
+                  </div>
+                  <div className="text-lg font-medium text-zinc-100">
+                    {t.director}
+                  </div>
+                </div>
+              )}
+              {t.cast && t.cast.length > 0 && (
+                <div className="col-span-2 sm:col-span-3 mt-4">
+                  <div className="text-xs uppercase tracking-widest text-zinc-500 mb-4 font-semibold flex items-center">
+                    <Users className="w-3.5 h-3.5 mr-1.5" /> Cast
+                  </div>
+                  <div className="flex flex-wrap gap-x-6 gap-y-4">
+                    {t.cast.slice(0, 6).map((actor, idx) => (
+                      <div key={idx} className="flex items-center gap-3">
+                        {actor.profileUrl ? (
+                          <img src={actor.profileUrl} alt={actor.name} className="w-10 h-10 rounded-full object-cover bg-zinc-900 border border-zinc-800" onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }} />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs font-medium text-zinc-500">
+                            {actor.name.charAt(0)}
+                          </div>
+                        )}
+                        <span className="text-sm font-medium text-zinc-300">{actor.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+               {language && (
+                 <div>
+                   <div className="text-xs uppercase tracking-widest text-zinc-500 mb-1.5 font-semibold flex items-center">
+                     <Globe className="w-3.5 h-3.5 mr-1.5" /> Language
+                   </div>
+                   <div className="text-lg font-medium text-zinc-100">
+                     {language}
+                   </div>
+                 </div>
+               )}
             </div>
           )}
-        </div>
 
-        <div className="prose prose-lg max-w-2xl mx-auto prose-slate dark:prose-invert">
-          <p className="lead text-xl md:text-2xl text-foreground font-serif !leading-relaxed text-center mb-12">
-            {post.excerpt}
-          </p>
+          {/* Source Screenshot Gallery */}
+          {sourceImageUrls && sourceImageUrls.length > 0 && (
+            <div className="mb-16">
+              <h3 className="text-xs uppercase tracking-widest text-zinc-500 mb-6 font-semibold flex items-center">
+                 <ImageIcon className="w-4 h-4 mr-2" /> Screenshots
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {sourceImageUrls.map((sourceImageUrl, i) => (
+                  <div key={i} className="aspect-video bg-zinc-900 rounded-lg overflow-hidden border border-zinc-800/50 hover:border-zinc-700 transition-colors">
+                    <ImageFallback src={sourceImageUrl} alt={`Screenshot ${i + 1}`} className="w-full h-full object-cover" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-          <div className="mt-12 p-8 bg-card rounded-2xl border border-border shadow-sm">
-            <h3 className="text-lg font-bold text-foreground m-0 mb-1 font-display">Catalog entry awaiting enrichment</h3>
-            <p className="text-muted-foreground text-sm m-0">
-              This editorial listing will show verified cast, ratings, and reference links when a confident TMDB match is available.
+          {/* Editorial Summary */}
+          <div className="mb-16">
+            <h3 className="text-xs uppercase tracking-widest text-zinc-500 mb-6 font-semibold flex items-center">
+              <Quote className="w-4 h-4 mr-2" /> Editorial Summary
+            </h3>
+            <p className="text-lg md:text-xl leading-relaxed text-zinc-300 font-serif">
+              {t?.editorialSummary || post.excerpt}
             </p>
           </div>
-        </div>
+
+          {!t && (
+            <div className="mb-16 p-8 bg-zinc-900/50 rounded-xl border border-zinc-800/50">
+              <h3 className="text-base font-bold text-zinc-200 mb-2 font-display">Catalog entry awaiting enrichment</h3>
+              <p className="text-zinc-400 text-sm">
+                This editorial listing will show verified cast, ratings, and reference links when a confident TMDB match is available.
+              </p>
+            </div>
+          )}
+
+          {/* Official Trailer */}
+          {t?.trailerUrl && (
+            <div className="mb-16">
+              <h3 className="text-xs uppercase tracking-widest text-zinc-500 mb-6 font-semibold flex items-center">
+                <PlayCircle className="w-4 h-4 mr-2" /> Official Trailer
+              </h3>
+              <a href={t.trailerUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center bg-white text-black px-6 py-3 rounded-full font-medium hover:bg-zinc-200 transition-colors shadow-lg shadow-white/5">
+                Watch on YouTube <ExternalLink className="w-4 h-4 ml-2 opacity-70" />
+              </a>
+            </div>
+          )}
+
+          {/* Related Entries */}
+          {t?.related && t.related.length > 0 && (
+            <div className="mb-12 pt-12 border-t border-zinc-800/50">
+              <h3 className="text-xs uppercase tracking-widest text-zinc-500 mb-8 font-semibold">
+                Related Entries
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
+                {t.related.map(item => (
+                  <a
+                    key={`${item.mediaType}-${item.id}`}
+                    href={`https://www.themoviedb.org/${item.mediaType}/${item.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group"
+                  >
+                    <div className="aspect-[2/3] bg-zinc-900 rounded-lg overflow-hidden border border-zinc-800/50 mb-3 relative">
+                      {item.posterUrl ? (
+                        <img src={item.posterUrl} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-zinc-600">
+                          <Film className="w-8 h-8 opacity-20" />
+                        </div>
+                      )}
+                    </div>
+                    <h4 className="font-medium text-sm text-zinc-300 group-hover:text-white line-clamp-1 transition-colors">{item.title}</h4>
+                    {item.year && <p className="text-xs text-zinc-500 mt-1">{item.year}</p>}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Attribution */}
+          <div className="pt-8 border-t border-zinc-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs text-zinc-500">
+            <div className="flex items-center gap-6">
+              {t?.imdbId && (
+                <a href={`https://www.imdb.com/title/${t.imdbId}`} target="_blank" rel="noopener noreferrer" className="hover:text-zinc-300 transition-colors flex items-center">
+                  IMDb <ExternalLink className="w-3 h-3 ml-1.5 opacity-70" />
+                </a>
+              )}
+              {t?.tmdbUrl && (
+                <a href={t.tmdbUrl} target="_blank" rel="noopener noreferrer" className="hover:text-zinc-300 transition-colors flex items-center">
+                  TMDB <ExternalLink className="w-3 h-3 ml-1.5 opacity-70" />
+                </a>
+              )}
+            </div>
+            <p className="text-zinc-600">{t?.attribution || "Catalog entry awaiting enrichment"}</p>
+          </div>
+        </article>
       </div>
     </PublicLayout>
   );

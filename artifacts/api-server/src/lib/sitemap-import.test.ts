@@ -9,6 +9,9 @@ import {
   getSitemapId,
   getUniqueSitemapEntries,
   getUniqueSitemapUrls,
+  extractSourceImageUrls,
+  createPinnedLookup,
+  validatePublicSourceImageUrls,
   isUnsafeIpAddress,
   isValidSitemapId,
   parseExternalUrl,
@@ -55,6 +58,23 @@ test("rejects private DNS destinations and private redirect targets", async () =
   );
 });
 
+test("pins outbound lookups to the prevalidated destination", async () => {
+  const destination = { address: "8.8.8.8", family: 4 };
+  const lookup = createPinnedLookup(destination);
+
+  await new Promise<void>((resolve, reject) => {
+    lookup("rebinding.example", { all: true }, (error, addresses) => {
+      try {
+        assert.ifError(error);
+        assert.deepEqual(addresses, [destination]);
+        resolve();
+      } catch (assertionError) {
+        reject(assertionError);
+      }
+    });
+  });
+});
+
 test("requires a server-issued sitemap signature", () => {
   const url = "https://public.example/wp-sitemap-posts-1.xml";
   const signature = getSitemapId(url, "test-secret");
@@ -87,6 +107,42 @@ test("deduplicates repeated sitemap locations after URL resolution", () => {
     "https://public.example/posts/one",
     "https://public.example/posts/two",
   ]);
+});
+
+test("extracts safe source screenshots from standard, lazy, and srcset images", () => {
+  const images = extractSourceImageUrls(
+    [
+      '<header><img src="/images/site-logo.png"></header>',
+      "<article>",
+      '<img src="/uploads/scene-one.jpg">',
+      '<img data-lazy-src="https://catimages.co/scene-two.jpg">',
+      '<img srcset="/small.jpg 320w, /large.jpg 1280w">',
+      '<img src="/uploads/scene-one.jpg">',
+      '<img data-src="data:image/png;base64,ignored">',
+      "</article>",
+      '<aside><img src="/advertisement.jpg"></aside>',
+    ].join(""),
+    new URL("https://new5.hdhub4u.cl/a-post/"),
+  );
+
+  assert.deepEqual(images, [
+    "https://new5.hdhub4u.cl/uploads/scene-one.jpg",
+    "https://catimages.co/scene-two.jpg",
+    "https://new5.hdhub4u.cl/large.jpg",
+  ]);
+});
+
+test("keeps only image hosts with a public DNS destination", async () => {
+  const images = await validatePublicSourceImageUrls(
+    ["https://public.example/scene.jpg", "https://private.example/scene.jpg"],
+    async (url) => {
+      if (url.hostname === "private.example") {
+        throw new Error("This source resolves to a non-public address");
+      }
+    },
+  );
+
+  assert.deepEqual(images, ["https://public.example/scene.jpg"]);
 });
 
 test("preserves each sitemap location with its valid lastmod timestamp", () => {

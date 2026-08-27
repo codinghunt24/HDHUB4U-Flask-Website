@@ -1,8 +1,10 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { lookup } from "node:dns/promises";
+import { type LookupFunction } from "node:net";
 import { isIP } from "node:net";
 
 export const SITEMAP_BATCH_SIZE = 25;
+export const SOURCE_IMAGE_LIMIT = 12;
 
 type LookupAddress = { address: string; family: number };
 type LookupAll = (hostname: string) => Promise<LookupAddress[]>;
@@ -139,6 +141,18 @@ export const resolvePublicDestination = async (
   return addresses[0];
 };
 
+export const createPinnedLookup = (
+  destination: { address: string; family: number },
+): LookupFunction => {
+  return (_hostname, options, callback) => {
+    if (typeof options === "object" && options.all) {
+      callback(null, [destination]);
+      return;
+    }
+    callback(null, destination.address, destination.family);
+  };
+};
+
 export const getSitemapId = (
   url: string,
   secret = process.env.SESSION_SECRET ?? "hdhub4u-development-secret",
@@ -233,6 +247,115 @@ export const getUniqueSitemapUrls = (
   clean?: (value: string) => string,
 ) => getUniqueSitemapEntries(xml, baseUrl, clean).map((entry) => entry.url);
 
+const imageAttributeNames = new Set([
+  "src",
+  "data-src",
+  "data-lazy-src",
+  "data-original",
+  "data-image",
+  "srcset",
+  "data-srcset",
+]);
+
+const presentationImagePattern =
+  /(?:avatar|favicon|gravatar|logo|icon|emoji|placeholder|site-branding|advert|banner|whatsapp|telegram|hosting|dmca)/i;
+
+const getSourceContentMarkup = (html: string) => {
+  const articleBlocks = [
+    ...html.matchAll(/<article\b[\s\S]*?<\/article>/gi),
+  ].map((match) => match[0]);
+  if (articleBlocks.length > 0) return articleBlocks.join("\n");
+
+  const mainBlocks = [...html.matchAll(/<main\b[\s\S]*?<\/main>/gi)].map(
+    (match) => match[0],
+  );
+  if (mainBlocks.length > 0) return mainBlocks.join("\n");
+
+  return html;
+};
+
+const getImageTagAttributes = (tag: string) =>
+  [...tag.matchAll(/([:@\w-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/g)]
+    .map((match) => [
+      match[1].toLowerCase(),
+      match[2] ?? match[3] ?? match[4] ?? "",
+    ] as const)
+    .filter(([name]) => imageAttributeNames.has(name));
+
+const getSrcsetCandidates = (value: string) => {
+  const candidates = value
+    .split(",")
+    .map((candidate) => candidate.trim().split(/\s+/, 1)[0])
+    .filter(Boolean);
+  return candidates.length > 0 ? [candidates[candidates.length - 1]] : [];
+};
+
+/**
+ * Extracts presentation-relevant image URLs from source HTML without fetching
+ * those images. Individual candidates are resolved against the safely fetched
+ * post URL and are restricted to public HTTP(S) destinations.
+ */
+export const extractSourceImageUrls = (
+  html: string,
+  sourceUrl: URL,
+  limit = SOURCE_IMAGE_LIMIT,
+) => {
+  const imageUrls = new Set<string>();
+
+  for (const match of getSourceContentMarkup(html).matchAll(/<img\b[^>]*>/gi)) {
+    const tag = match[0];
+    if (presentationImagePattern.test(tag)) continue;
+
+    for (const [name, value] of getImageTagAttributes(tag)) {
+      const candidates =
+        name === "srcset" || name === "data-srcset"
+          ? getSrcsetCandidates(value)
+          : [value];
+      for (const candidate of candidates) {
+        if (!candidate || presentationImagePattern.test(candidate)) continue;
+        try {
+          const resolvedUrl = new URL(
+            candidate.replace(/&amp;/gi, "&").trim(),
+            sourceUrl,
+          );
+          resolvedUrl.hash = "";
+          const safeUrl = parseExternalUrl(resolvedUrl.toString()).toString();
+          imageUrls.add(safeUrl);
+          if (imageUrls.size >= limit) return [...imageUrls];
+        } catch {
+          // Ignore malformed, non-HTTP(S), or private image references.
+        }
+      }
+    }
+  }
+
+  return [...imageUrls];
+};
+
+/**
+ * DNS-validates gallery URLs before persistence. The application does not
+ * proxy image bytes, so this protects visitors from receiving an image URL
+ * whose hostname resolves to a private network destination.
+ */
+export const validatePublicSourceImageUrls = async (
+  imageUrls: string[],
+  validateDestination: (url: URL) => Promise<unknown> =
+    resolvePublicDestination,
+) => {
+  const results = await Promise.all(
+    imageUrls.map(async (imageUrl) => {
+      try {
+        const url = parseExternalUrl(imageUrl);
+        await validateDestination(url);
+        return url.toString();
+      } catch {
+        return null;
+      }
+    }),
+  );
+  return results.filter((imageUrl): imageUrl is string => Boolean(imageUrl));
+};
+
 export const getNextSitemapOffset = (
   offset: number,
   processed: number,
@@ -243,6 +366,7 @@ export type SitemapCandidate = {
   url: string;
   title: string;
   thumbnailUrl: string;
+  sourceImageUrls?: string[];
   publishedAt?: Date | null;
   sourceTitle?: string | null;
   detectedTitle?: string | null;

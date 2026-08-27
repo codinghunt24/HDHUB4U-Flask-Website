@@ -13,6 +13,7 @@ export interface Post {
   title: string;
   slug: string;
   thumbnailUrl: string;
+  sourceImageUrls: string[];
   excerpt: string;
   /** @nullable */
   sourceUrl?: string | null;

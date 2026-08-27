@@ -86,6 +86,38 @@ paths:
                 $ref: "#/components/schemas/Post"
         "404":
           description: Post not found
+  /source-images/{slug}/{index}:
+    get:
+      operationId: getSourceImage
+      tags: [public]
+      summary: Get a proxied source gallery image
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: index
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 11
+      responses:
+        "200":
+          description: Image bytes
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Invalid source image request
+        "404":
+          description: Source image not found
+        "502":
+          description: Source image is unavailable
   /categories:
     get:
       operationId: listCategories
@@ -257,6 +289,28 @@ paths:
                 $ref: "#/components/schemas/TmdbEnrichmentResult"
         "400":
           description: TMDB key is unavailable or request is invalid
+        "401":
+          description: Unauthorized
+  /admin/posts/source-images/refresh:
+    post:
+      operationId: refreshAdminPostSourceImages
+      tags: [admin]
+      summary: Refresh source screenshot galleries for a bounded batch of posts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SourceImageRefreshInput"
+      responses:
+        "200":
+          description: Source image refresh result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SourceImageRefreshResult"
+        "400":
+          description: Invalid refresh request
         "401":
           description: Unauthorized
   /admin/import:
@@ -439,12 +493,15 @@ components:
         postCount: { type: number }
     Post:
       type: object
-      required: [id, title, slug, thumbnailUrl, excerpt, category, publishedAt]
+      required: [id, title, slug, thumbnailUrl, sourceImageUrls, excerpt, category, publishedAt]
       properties:
         id: { type: number }
         title: { type: string }
         slug: { type: string }
         thumbnailUrl: { type: string }
+        sourceImageUrls:
+          type: array
+          items: { type: string }
         excerpt: { type: string }
         sourceUrl: { type: ["string", "null"] }
         category:
@@ -528,6 +585,7 @@ components:
           releaseDate,
           year,
           runtime,
+          language,
           genres,
           rating,
           voteCount,
@@ -555,6 +613,7 @@ components:
         releaseDate: { type: ["string", "null"] }
         year: { type: ["number", "null"] }
         runtime: { type: ["number", "null"] }
+        language: { type: ["string", "null"] }
         genres:
           type: array
           items: { type: string }
@@ -597,6 +656,17 @@ components:
         review: { type: number }
         unmatched: { type: number }
         unavailable: { type: number }
+        failed: { type: number }
+    SourceImageRefreshInput:
+      type: object
+      properties:
+        limit: { type: number, minimum: 1, maximum: 25, default: 10 }
+    SourceImageRefreshResult:
+      type: object
+      required: [attempted, refreshed, failed]
+      properties:
+        attempted: { type: number }
+        refreshed: { type: number }
         failed: { type: number }
     PostList:
       type: object

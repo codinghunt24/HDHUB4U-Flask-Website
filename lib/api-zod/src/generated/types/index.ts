@@ -38,6 +38,8 @@ export * from './sitemapEntry';
 export * from './sitemapInfo';
 export * from './sitemapScrapeInput';
 export * from './sitemapScrapeResult';
+export * from './sourceImageRefreshInput';
+export * from './sourceImageRefreshResult';
 export * from './successResponse';
 export * from './tmdbApiKeyInput';
 export * from './tmdbCastMember';

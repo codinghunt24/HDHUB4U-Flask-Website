@@ -21,6 +21,8 @@ export interface TmdbMetadata {
   year: number | null;
   /** @nullable */
   runtime: number | null;
+  /** @nullable */
+  language: string | null;
   genres: string[];
   /** @nullable */
   rating: number | null;

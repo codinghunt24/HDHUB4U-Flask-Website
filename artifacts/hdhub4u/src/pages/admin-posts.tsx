@@ -1,4 +1,11 @@
-import { useListAdminPosts, useUpdateAdminPost, useEnrichAdminTmdbPosts, useDeleteAllAdminPosts, getListAdminPostsQueryKey } from "@workspace/api-client-react";
+import {
+  useListAdminPosts,
+  useUpdateAdminPost,
+  useEnrichAdminTmdbPosts,
+  useRefreshAdminPostSourceImages,
+  useDeleteAllAdminPosts,
+  getListAdminPostsQueryKey,
+} from "@workspace/api-client-react";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -15,7 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Check, X, ExternalLink, Globe, Pencil, Sparkles, RefreshCcw, Trash2 } from "lucide-react";
+import { Check, X, ExternalLink, Globe, Pencil, Sparkles, RefreshCcw, Trash2, Images } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -31,6 +38,7 @@ export default function AdminPosts() {
   const { data: posts, isLoading } = useListAdminPosts({ status: 'all' });
   const updatePost = useUpdateAdminPost();
   const enrichMutation = useEnrichAdminTmdbPosts();
+  const refreshSourceImages = useRefreshAdminPostSourceImages();
   const deleteAllPosts = useDeleteAllAdminPosts();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -69,6 +77,29 @@ export default function AdminPosts() {
         });
       }
     });
+  };
+
+  const handleRefreshSourceImages = () => {
+    refreshSourceImages.mutate(
+      { data: { limit: 10 } },
+      {
+        onSuccess: (result) => {
+          toast({
+            title: "Source screenshots refreshed",
+            description: `Attempted: ${result.attempted} | Refreshed: ${result.refreshed} | Failed: ${result.failed}`,
+          });
+          queryClient.invalidateQueries({ queryKey: getListAdminPostsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+        },
+        onError: () => {
+          toast({
+            title: "Source screenshot refresh failed",
+            description: "The selected sources could not be refreshed. Please try again.",
+            variant: "destructive",
+          });
+        },
+      },
+    );
   };
 
   const openTitleEditor = (post: EditablePost) => {
@@ -161,7 +192,7 @@ export default function AdminPosts() {
         <div className="flex flex-wrap gap-3">
           <Button 
             onClick={handleEnrich} 
-            disabled={enrichMutation.isPending || deleteAllPosts.isPending}
+            disabled={enrichMutation.isPending || refreshSourceImages.isPending || deleteAllPosts.isPending}
             className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
           >
             {enrichMutation.isPending ? (
@@ -172,9 +203,21 @@ export default function AdminPosts() {
             Enrich via TMDB
           </Button>
           <Button
+            variant="outline"
+            onClick={handleRefreshSourceImages}
+            disabled={enrichMutation.isPending || refreshSourceImages.isPending || deleteAllPosts.isPending || isLoading || !posts?.length}
+          >
+            {refreshSourceImages.isPending ? (
+              <RefreshCcw className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Images className="w-4 h-4 mr-2" />
+            )}
+            Refresh screenshots
+          </Button>
+          <Button
             variant="destructive"
             onClick={() => setCleanOpen(true)}
-            disabled={deleteAllPosts.isPending || enrichMutation.isPending || isLoading || !posts?.length}
+            disabled={deleteAllPosts.isPending || enrichMutation.isPending || refreshSourceImages.isPending || isLoading || !posts?.length}
             data-testid="button-clean-all-posts"
           >
             {deleteAllPosts.isPending ? (

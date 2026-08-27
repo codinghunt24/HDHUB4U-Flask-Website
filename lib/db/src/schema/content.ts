@@ -52,6 +52,10 @@ export const postsTable = pgTable(
     tmdbEnrichedAt: timestamp("tmdb_enriched_at", { withTimezone: true }),
     slug: text("slug").notNull(),
     thumbnailUrl: text("thumbnail_url").notNull(),
+    sourceImageUrls: jsonb("source_image_urls").$type<string[] | null>(),
+    sourceImagesRefreshedAt: timestamp("source_images_refreshed_at", {
+      withTimezone: true,
+    }),
     excerpt: text("excerpt").notNull().default(""),
     sourceUrl: text("source_url"),
     sourceDomain: text("source_domain").notNull().default("manual"),

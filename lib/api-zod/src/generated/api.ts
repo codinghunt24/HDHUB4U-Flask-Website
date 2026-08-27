@@ -40,6 +40,7 @@ export const ListPostsResponse = zod.object({
   "title": zod.string(),
   "slug": zod.string(),
   "thumbnailUrl": zod.string(),
+  "sourceImageUrls": zod.array(zod.string()),
   "excerpt": zod.string(),
   "sourceUrl": zod.string().nullish(),
   "category": zod.object({
@@ -57,6 +58,7 @@ export const ListPostsResponse = zod.object({
   "releaseDate": zod.string().nullable(),
   "year": zod.number().nullable(),
   "runtime": zod.number().nullable(),
+  "language": zod.string().nullable(),
   "genres": zod.array(zod.string()),
   "rating": zod.number().nullable(),
   "voteCount": zod.number().nullable(),
@@ -106,6 +108,7 @@ export const GetPostResponse = zod.object({
   "title": zod.string(),
   "slug": zod.string(),
   "thumbnailUrl": zod.string(),
+  "sourceImageUrls": zod.array(zod.string()),
   "excerpt": zod.string(),
   "sourceUrl": zod.string().nullish(),
   "category": zod.object({
@@ -123,6 +126,7 @@ export const GetPostResponse = zod.object({
   "releaseDate": zod.string().nullable(),
   "year": zod.number().nullable(),
   "runtime": zod.number().nullable(),
+  "language": zod.string().nullable(),
   "genres": zod.array(zod.string()),
   "rating": zod.number().nullable(),
   "voteCount": zod.number().nullable(),
@@ -153,6 +157,22 @@ export const GetPostResponse = zod.object({
   "syncedAt": zod.coerce.date()
 }).optional()
 })
+
+
+/**
+ * @summary Get a proxied source gallery image
+ */
+export const getSourceImagePathIndexMin = 0;
+export const getSourceImagePathIndexMax = 11;
+
+
+
+export const GetSourceImageParams = zod.object({
+  "slug": zod.coerce.string(),
+  "index": zod.coerce.number().int().min(getSourceImagePathIndexMin).max(getSourceImagePathIndexMax)
+})
+
+export const GetSourceImageResponse = zod.unknown()
 
 
 /**
@@ -241,6 +261,7 @@ export const ListAdminPostsResponseItem = zod.object({
   "title": zod.string(),
   "slug": zod.string(),
   "thumbnailUrl": zod.string(),
+  "sourceImageUrls": zod.array(zod.string()),
   "excerpt": zod.string(),
   "sourceUrl": zod.string().nullish(),
   "category": zod.object({
@@ -258,6 +279,7 @@ export const ListAdminPostsResponseItem = zod.object({
   "releaseDate": zod.string().nullable(),
   "year": zod.number().nullable(),
   "runtime": zod.number().nullable(),
+  "language": zod.string().nullable(),
   "genres": zod.array(zod.string()),
   "rating": zod.number().nullable(),
   "voteCount": zod.number().nullable(),
@@ -339,6 +361,7 @@ export const UpdateAdminPostResponse = zod.object({
   "title": zod.string(),
   "slug": zod.string(),
   "thumbnailUrl": zod.string(),
+  "sourceImageUrls": zod.array(zod.string()),
   "excerpt": zod.string(),
   "sourceUrl": zod.string().nullish(),
   "category": zod.object({
@@ -356,6 +379,7 @@ export const UpdateAdminPostResponse = zod.object({
   "releaseDate": zod.string().nullable(),
   "year": zod.number().nullable(),
   "runtime": zod.number().nullable(),
+  "language": zod.string().nullable(),
   "genres": zod.array(zod.string()),
   "rating": zod.number().nullable(),
   "voteCount": zod.number().nullable(),
@@ -425,6 +449,25 @@ export const EnrichAdminTmdbPostsResponse = zod.object({
 
 
 /**
+ * @summary Refresh source screenshot galleries for a bounded batch of posts
+ */
+export const refreshAdminPostSourceImagesBodyLimitDefault = 10;
+export const refreshAdminPostSourceImagesBodyLimitMax = 25;
+
+
+
+export const RefreshAdminPostSourceImagesBody = zod.object({
+  "limit": zod.number().min(1).max(refreshAdminPostSourceImagesBodyLimitMax).default(refreshAdminPostSourceImagesBodyLimitDefault)
+})
+
+export const RefreshAdminPostSourceImagesResponse = zod.object({
+  "attempted": zod.number(),
+  "refreshed": zod.number(),
+  "failed": zod.number()
+})
+
+
+/**
  * @summary Import authorized post listings from a URL
  */
 export const ImportPostsBody = zod.object({
@@ -445,6 +488,7 @@ export const ImportPostsResponse = zod.object({
   "title": zod.string(),
   "slug": zod.string(),
   "thumbnailUrl": zod.string(),
+  "sourceImageUrls": zod.array(zod.string()),
   "excerpt": zod.string(),
   "sourceUrl": zod.string().nullish(),
   "category": zod.object({
@@ -462,6 +506,7 @@ export const ImportPostsResponse = zod.object({
   "releaseDate": zod.string().nullable(),
   "year": zod.number().nullable(),
   "runtime": zod.number().nullable(),
+  "language": zod.string().nullable(),
   "genres": zod.array(zod.string()),
   "rating": zod.number().nullable(),
   "voteCount": zod.number().nullable(),

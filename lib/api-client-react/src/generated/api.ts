@@ -43,6 +43,8 @@ import type {
   SitemapInfo,
   SitemapScrapeInput,
   SitemapScrapeResult,
+  SourceImageRefreshInput,
+  SourceImageRefreshResult,
   SuccessResponse,
   TmdbApiKeyInput,
   TmdbEnrichmentInput,
@@ -303,6 +305,88 @@ export function useGetPost<TData = Awaited<ReturnType<typeof getPost>>, TError =
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetPostQueryOptions(slug,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetSourceImageUrl = (slug: string,
+    index: number,) => {
+
+
+
+
+  return `/api/source-images/${slug}/${index}`
+}
+
+/**
+ * @summary Get a proxied source gallery image
+ */
+export const getSourceImage = async (slug: string,
+    index: number, options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetSourceImageUrl(slug,index),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSourceImageQueryKey = (slug: string,
+    index: number,) => {
+    return [
+    `/api/source-images/${slug}/${index}`
+    ] as const;
+    }
+
+
+export const getGetSourceImageQueryOptions = <TData = Awaited<ReturnType<typeof getSourceImage>>, TError = ErrorType<void>>(slug: string,
+    index: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSourceImage>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSourceImageQueryKey(slug,index);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSourceImage>>> = ({ signal }) => getSourceImage(slug,index, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: slug !== null && slug !== undefined && index !== null && index !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSourceImage>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSourceImageQueryResult = NonNullable<Awaited<ReturnType<typeof getSourceImage>>>
+export type GetSourceImageQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get a proxied source gallery image
+ */
+
+export function useGetSourceImage<TData = Awaited<ReturnType<typeof getSourceImage>>, TError = ErrorType<void>>(
+ slug: string,
+    index: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSourceImage>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSourceImageQueryOptions(slug,index,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -1061,6 +1145,77 @@ export const useEnrichAdminTmdbPosts = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getEnrichAdminTmdbPostsMutationOptions(options));
+    }
+
+export const getRefreshAdminPostSourceImagesUrl = () => {
+
+
+
+
+  return `/api/admin/posts/source-images/refresh`
+}
+
+/**
+ * @summary Refresh source screenshot galleries for a bounded batch of posts
+ */
+export const refreshAdminPostSourceImages = async (sourceImageRefreshInput: SourceImageRefreshInput, options?: Parameters<typeof customFetch>[1]): Promise<SourceImageRefreshResult> => {
+
+  return customFetch<SourceImageRefreshResult>(getRefreshAdminPostSourceImagesUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sourceImageRefreshInput)
+  }
+);}
+
+
+
+
+
+export const getRefreshAdminPostSourceImagesMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshAdminPostSourceImages>>, TError,{data: BodyType<SourceImageRefreshInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof refreshAdminPostSourceImages>>, TError,{data: BodyType<SourceImageRefreshInput>}, TContext> => {
+
+const mutationKey = ['refreshAdminPostSourceImages'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof refreshAdminPostSourceImages>>, {data: BodyType<SourceImageRefreshInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  refreshAdminPostSourceImages(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RefreshAdminPostSourceImagesMutationResult = NonNullable<Awaited<ReturnType<typeof refreshAdminPostSourceImages>>>
+    export type RefreshAdminPostSourceImagesMutationBody = BodyType<SourceImageRefreshInput>
+    export type RefreshAdminPostSourceImagesMutationError = ErrorType<void>
+
+    /**
+ * @summary Refresh source screenshot galleries for a bounded batch of posts
+ */
+export const useRefreshAdminPostSourceImages = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshAdminPostSourceImages>>, TError,{data: BodyType<SourceImageRefreshInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof refreshAdminPostSourceImages>>,
+        TError,
+        {data: BodyType<SourceImageRefreshInput>},
+        TContext
+      > => {
+      return useMutation(getRefreshAdminPostSourceImagesMutationOptions(options));
     }
 
 export const getImportPostsUrl = () => {
