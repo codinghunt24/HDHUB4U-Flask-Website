@@ -23,7 +23,7 @@ const setMetaTag = (
   element.content = content;
 };
 
-const ImageFallback = ({ src, alt, fallback, className }: { src: string | null | undefined, alt: string, fallback?: React.ReactNode, className?: string }) => {
+const ImageFallback = ({ src, alt, fallback, className, fit = "cover" }: { src: string | null | undefined, alt: string, fallback?: React.ReactNode, className?: string, fit?: "cover" | "contain" }) => {
   const [error, setError] = useState(false);
   if (!src || error) {
     return (
@@ -32,7 +32,7 @@ const ImageFallback = ({ src, alt, fallback, className }: { src: string | null |
       </div>
     );
   }
-  return <img src={src} alt={alt} className={`w-full h-full object-cover ${className || ''}`} onError={() => setError(true)} loading="lazy" />;
+  return <img src={src} alt={alt} className={`w-full ${fit === "cover" ? "h-full object-cover" : "h-auto object-contain"} ${className || ''}`} onError={() => setError(true)} loading="lazy" />;
 };
 
 export default function PostPage() {
@@ -227,8 +227,8 @@ export default function PostPage() {
               </h2>
               <div className="space-y-4">
                 {sourceImageUrls.map((sourceImageUrl, i) => (
-                  <div key={sourceImageUrl} className="w-full aspect-video bg-zinc-900 rounded-lg overflow-hidden border border-zinc-700/80 hover:border-zinc-500 transition-colors">
-                    <ImageFallback src={sourceImageUrl} alt={`Screenshot ${i + 1}`} className="w-full h-full object-cover" />
+                  <div key={sourceImageUrl} className="w-full max-w-3xl mx-auto min-h-40 bg-zinc-900 rounded-lg overflow-hidden border border-zinc-700/80 hover:border-zinc-500 transition-colors">
+                    <ImageFallback src={sourceImageUrl} alt={`Screenshot ${i + 1}`} fit="contain" className="w-full h-auto" />
                   </div>
                 ))}
               </div>
