@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./schema": "./src/schema/index.ts"
+    "./schema": "./src/schema/index.ts",
+    "./tmdb-category": "./src/tmdb-category.mjs"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",

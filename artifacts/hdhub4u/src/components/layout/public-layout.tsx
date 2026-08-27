@@ -1,25 +1,91 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, MonitorPlay, Film } from "lucide-react";
-import { useState, FormEvent } from "react";
+import { Search, MonitorPlay, Film, ChevronDown } from "lucide-react";
+import { useRef, useState, FormEvent } from "react";
 import { useGetPublicSettings, useListCategories } from "@workspace/api-client-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+type PublicCategory = {
+  id: number;
+  name: string;
+  slug: string;
+};
+
+function AllCategoriesMenu({ categories }: { categories: PublicCategory[] }) {
+  const [open, setOpen] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const keepOpen = () => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+    setOpen(true);
+  };
+
+  const closeSoon = () => {
+    closeTimer.current = setTimeout(() => {
+      setOpen(false);
+      closeTimer.current = null;
+    }, 160);
+  };
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={keepOpen}
+      onMouseLeave={closeSoon}
+    >
+      <DropdownMenu open={open} onOpenChange={setOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="whitespace-nowrap rounded-full text-white hover:bg-white/10 hover:text-white"
+            aria-label="Show all categories"
+          >
+            All
+            <ChevronDown className="ml-1 h-3.5 w-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="start"
+          sideOffset={8}
+          className="max-h-[min(70vh,28rem)] min-w-52"
+          onMouseEnter={keepOpen}
+          onMouseLeave={closeSoon}
+        >
+          <DropdownMenuItem asChild>
+            <Link href="/" className="cursor-pointer font-medium">
+              All posts
+            </Link>
+          </DropdownMenuItem>
+          {categories.map((cat) => (
+            <DropdownMenuItem key={cat.id} asChild>
+              <Link href={`/category/${cat.slug}`} className="cursor-pointer">
+                {cat.name}
+              </Link>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
   const { data: settings } = useGetPublicSettings();
   const { data: categories } = useListCategories();
-  const menuCategorySlugs = [
-    "bollywood",
-    "hollywood",
-    "hindi-dubbed",
-    "south-hindi",
-    "web-series",
-  ];
-  const menuCategories = menuCategorySlugs
-    .map((slug) => categories?.find((category) => category.slug === slug))
-    .filter((category): category is NonNullable<typeof category> => Boolean(category));
+  const menuCategories = categories ?? [];
+  const visibleCategories = menuCategories.slice(0, 6);
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
@@ -46,18 +112,14 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
           </Link>
 
           <nav aria-label="Main navigation" className="hidden md:flex items-center gap-1 overflow-x-auto no-scrollbar">
-            <Link href="/">
-              <Button variant="ghost" size="sm" className="whitespace-nowrap rounded-full text-white hover:bg-white/10 hover:text-white">
-                All
-              </Button>
-            </Link>
-            {menuCategories.map((cat) => (
+            {visibleCategories.map((cat) => (
               <Link key={cat.id} href={`/category/${cat.slug}`}>
                 <Button variant="ghost" size="sm" className="whitespace-nowrap rounded-full text-white hover:bg-white/10 hover:text-white">
                   {cat.name}
                 </Button>
               </Link>
             ))}
+            <AllCategoriesMenu categories={menuCategories} />
           </nav>
 
           <form onSubmit={handleSearch} className="flex-1 max-w-lg ml-auto relative group">
@@ -74,18 +136,14 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <nav aria-label="Mobile navigation" className="flex md:hidden items-center gap-1 overflow-x-auto pt-2 no-scrollbar">
-              <Link href="/">
-                <Button variant="ghost" size="sm" className="whitespace-nowrap rounded-full text-white hover:bg-white/10 hover:text-white">
-                  All
-                </Button>
-              </Link>
-              {menuCategories.map((cat) => (
+              {visibleCategories.map((cat) => (
                 <Link key={cat.id} href={`/category/${cat.slug}`}>
                   <Button variant="ghost" size="sm" className="whitespace-nowrap rounded-full text-white hover:bg-white/10 hover:text-white">
                     {cat.name}
                   </Button>
                 </Link>
               ))}
+              <AllCategoriesMenu categories={menuCategories} />
           </nav>
         </div>
       </header>

@@ -47,6 +47,10 @@ import {
   settingsTable,
 } from "@workspace/db";
 import {
+  getPrimaryTmdbGenre,
+  normalizeCategorySlug,
+} from "@workspace/db/tmdb-category";
+import {
   and,
   count,
   desc,
@@ -127,6 +131,43 @@ const getOrCreateDefaultCategory = async () => {
     .where(eq(categoriesTable.slug, DEFAULT_CATEGORY.slug))
     .limit(1);
   return created;
+};
+
+const getOrCreateCategoryByName = async (
+  name: string,
+  fallback: typeof categoriesTable.$inferSelect | null = null,
+) => {
+  const normalizedName = name.trim();
+  const slug = normalizeCategorySlug(normalizedName);
+  if (!normalizedName || !slug) return fallback;
+
+  const [existing] = await db
+    .select()
+    .from(categoriesTable)
+    .where(eq(categoriesTable.slug, slug))
+    .limit(1);
+  if (existing) return existing;
+
+  await db
+    .insert(categoriesTable)
+    .values({ name: normalizedName, slug })
+    .onConflictDoNothing({ target: categoriesTable.slug });
+
+  const [created] = await db
+    .select()
+    .from(categoriesTable)
+    .where(eq(categoriesTable.slug, slug))
+    .limit(1);
+  return created ?? fallback;
+};
+
+const getCategoryForTmdbCandidate = async (
+  candidate: Pick<SitemapCandidate, "tmdbMetadata" | "tmdbEnrichmentStatus">,
+  fallback: typeof categoriesTable.$inferSelect | null = null,
+) => {
+  if (candidate.tmdbEnrichmentStatus !== "ready") return fallback;
+  const genre = getPrimaryTmdbGenre(candidate.tmdbMetadata);
+  return genre ? getOrCreateCategoryByName(genre, fallback) : fallback;
 };
 
 const cleanText = (value: string) =>
@@ -976,6 +1017,10 @@ router.post("/admin/tmdb/enrich", async (req, res): Promise<void> => {
         apiKey,
       );
       const { title, ...matchFields } = fields;
+      const tmdbCategory =
+        fields.tmdbEnrichmentStatus === "ready"
+          ? await getCategoryForTmdbCandidate(fields)
+          : null;
       const attemptedAt =
         fields.tmdbEnrichmentStatus === "ready" ? fields.tmdbEnrichedAt : new Date();
       await db
@@ -983,6 +1028,7 @@ router.post("/admin/tmdb/enrich", async (req, res): Promise<void> => {
         .set({
           ...matchFields,
           tmdbEnrichedAt: attemptedAt,
+          ...(tmdbCategory ? { categoryId: tmdbCategory.id } : {}),
           ...(candidate.titleSource === "auto" ? { title } : {}),
         })
         .where(eq(postsTable.id, candidate.id));
@@ -1159,6 +1205,10 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
         ) {
           return false;
         }
+        const insertCategory = (await getCategoryForTmdbCandidate(
+          candidate,
+          defaultCategory,
+        )) ?? defaultCategory;
         const [created] = await db
           .insert(postsTable)
           .values({
@@ -1179,7 +1229,7 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
             excerpt: buildImportedExcerpt(candidate.title),
             sourceUrl: candidate.url,
             sourceDomain: sitemapUrl.hostname,
-            categoryId: defaultCategory.id,
+            categoryId: insertCategory.id,
             published: true,
             publishedAt: sourcePublishedAt,
           })
@@ -1208,6 +1258,7 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
           tmdbMetadata?: Record<string, unknown> | null;
           tmdbEnrichmentStatus?: string;
           tmdbEnrichedAt?: Date | null;
+          categoryId?: number;
         } = {};
         if (candidate.publishedAt) {
           duplicateUpdate.publishedAt = sourcePublishedAt;
@@ -1228,6 +1279,8 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
         if (!existing?.sourceTitle && candidate.sourceTitle) {
           duplicateUpdate.sourceTitle = candidate.sourceTitle;
         }
+        const tmdbCategory = await getCategoryForTmdbCandidate(candidate);
+        if (tmdbCategory) duplicateUpdate.categoryId = tmdbCategory.id;
         if (Object.keys(duplicateUpdate).length > 0) {
           await db
             .update(postsTable)
@@ -1420,6 +1473,7 @@ router.post("/admin/import", async (req, res): Promise<void> => {
       .from(postsTable)
       .where(eq(postsTable.sourceUrl, candidate.url));
     if (existing) {
+      const category = await getCategoryForTmdbCandidate(candidate);
       await db
         .update(postsTable)
         .set({
@@ -1432,11 +1486,16 @@ router.post("/admin/import", async (req, res): Promise<void> => {
           ...(!existing.sourceTitle && candidate.sourceTitle
             ? { sourceTitle: candidate.sourceTitle }
             : {}),
+          ...(category ? { categoryId: category.id } : {}),
         })
         .where(eq(postsTable.id, existing.id));
       skipped += 1;
       continue;
     }
+    const insertCategory = (await getCategoryForTmdbCandidate(
+      candidate,
+      defaultCategory,
+    )) ?? defaultCategory;
     const uniqueSlug = `${slugify(candidate.title)}-${Date.now().toString(36)}-${imported}`;
     const [created] = await db
       .insert(postsTable)
@@ -1458,7 +1517,7 @@ router.post("/admin/import", async (req, res): Promise<void> => {
         excerpt: buildImportedExcerpt(candidate.title),
         sourceUrl: candidate.url,
         sourceDomain: hostname,
-        categoryId: defaultCategory.id,
+        categoryId: insertCategory.id,
         published: true,
         publishedAt: sourcePublishedAt,
       })
