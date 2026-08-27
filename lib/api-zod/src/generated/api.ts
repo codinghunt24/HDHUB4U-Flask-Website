@@ -157,6 +157,11 @@ export const ListAdminPostsQueryParams = zod.object({
   "search": zod.coerce.string().optional()
 })
 
+export const listAdminPostsResponseTwoTitleMatchConfidenceMin = 0;
+export const listAdminPostsResponseTwoTitleMatchConfidenceMax = 100;
+
+
+
 export const ListAdminPostsResponseItem = zod.object({
   "id": zod.number(),
   "title": zod.string(),
@@ -173,7 +178,14 @@ export const ListAdminPostsResponseItem = zod.object({
   "publishedAt": zod.coerce.date()
 }).and(zod.object({
   "status": zod.enum(['published', 'draft']),
-  "sourceDomain": zod.string()
+  "sourceDomain": zod.string(),
+  "titleSource": zod.enum(['auto', 'manual']),
+  "sourceTitle": zod.string().nullable(),
+  "detectedTitle": zod.string().nullable(),
+  "titleMatchStatus": zod.enum(['matched', 'review', 'unmatched', 'unavailable']),
+  "titleMatchConfidence": zod.number().min(listAdminPostsResponseTwoTitleMatchConfidenceMin).max(listAdminPostsResponseTwoTitleMatchConfidenceMax).nullable(),
+  "titleMatchType": zod.union([zod.literal('movie'),zod.literal('tv'),zod.literal(null)]).nullable(),
+  "titleMatchYear": zod.number().nullable()
 }))
 export const ListAdminPostsResponse = zod.array(ListAdminPostsResponseItem)
 
@@ -194,6 +206,11 @@ export const UpdateAdminPostBody = zod.object({
   "categoryId": zod.number().nullish()
 })
 
+export const updateAdminPostResponseTwoTitleMatchConfidenceMin = 0;
+export const updateAdminPostResponseTwoTitleMatchConfidenceMax = 100;
+
+
+
 export const UpdateAdminPostResponse = zod.object({
   "id": zod.number(),
   "title": zod.string(),
@@ -210,7 +227,14 @@ export const UpdateAdminPostResponse = zod.object({
   "publishedAt": zod.coerce.date()
 }).and(zod.object({
   "status": zod.enum(['published', 'draft']),
-  "sourceDomain": zod.string()
+  "sourceDomain": zod.string(),
+  "titleSource": zod.enum(['auto', 'manual']),
+  "sourceTitle": zod.string().nullable(),
+  "detectedTitle": zod.string().nullable(),
+  "titleMatchStatus": zod.enum(['matched', 'review', 'unmatched', 'unavailable']),
+  "titleMatchConfidence": zod.number().min(updateAdminPostResponseTwoTitleMatchConfidenceMin).max(updateAdminPostResponseTwoTitleMatchConfidenceMax).nullable(),
+  "titleMatchType": zod.union([zod.literal('movie'),zod.literal('tv'),zod.literal(null)]).nullable(),
+  "titleMatchYear": zod.number().nullable()
 }))
 
 
@@ -220,6 +244,11 @@ export const UpdateAdminPostResponse = zod.object({
 export const ImportPostsBody = zod.object({
   "url": zod.string()
 })
+
+export const importPostsResponseItemsItemTwoTitleMatchConfidenceMin = 0;
+export const importPostsResponseItemsItemTwoTitleMatchConfidenceMax = 100;
+
+
 
 export const ImportPostsResponse = zod.object({
   "sourceUrl": zod.string(),
@@ -241,7 +270,14 @@ export const ImportPostsResponse = zod.object({
   "publishedAt": zod.coerce.date()
 }).and(zod.object({
   "status": zod.enum(['published', 'draft']),
-  "sourceDomain": zod.string()
+  "sourceDomain": zod.string(),
+  "titleSource": zod.enum(['auto', 'manual']),
+  "sourceTitle": zod.string().nullable(),
+  "detectedTitle": zod.string().nullable(),
+  "titleMatchStatus": zod.enum(['matched', 'review', 'unmatched', 'unavailable']),
+  "titleMatchConfidence": zod.number().min(importPostsResponseItemsItemTwoTitleMatchConfidenceMin).max(importPostsResponseItemsItemTwoTitleMatchConfidenceMax).nullable(),
+  "titleMatchType": zod.union([zod.literal('movie'),zod.literal('tv'),zod.literal(null)]).nullable(),
+  "titleMatchYear": zod.number().nullable()
 })))
 })
 

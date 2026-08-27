@@ -54,10 +54,12 @@ import {
   parseExternalUrl,
   persistSitemapCandidates,
   resolvePublicDestination,
+  type SitemapCandidate,
 } from "../lib/sitemap-import";
 import {
   getImportedTitleUpdate,
-  normalizeScrapedTitle,
+  parseScrapedTitle,
+  type ParsedScrapedTitle,
 } from "../lib/seo-title";
 import {
   buildImportedExcerpt,
@@ -70,6 +72,10 @@ import {
   encryptTmdbApiKey,
   maskTmdbApiKey,
 } from "../lib/tmdb-api-key";
+import {
+  createTmdbTitleResolver,
+  type ResolvedTitle,
+} from "../lib/tmdb-title-resolver";
 
 const router: IRouter = Router();
 const SESSION_COOKIE = "hdhub4u_admin";
@@ -288,7 +294,37 @@ const getMetaContent = (html: string, key: string) => {
   return null;
 };
 
-const parsePostPage = async (url: URL) => {
+const getConfiguredTmdbApiKey = async () => {
+  const [settings] = await db
+    .select({ tmdbApiKeyEncrypted: settingsTable.tmdbApiKeyEncrypted })
+    .from(settingsTable)
+    .limit(1);
+  if (!settings?.tmdbApiKeyEncrypted) return null;
+  try {
+    return decryptTmdbApiKey(settings.tmdbApiKeyEncrypted);
+  } catch {
+    return null;
+  }
+};
+
+const getResolvedTitleFields = (
+  parsedTitle: ParsedScrapedTitle,
+  resolution: ResolvedTitle,
+) => ({
+  title: resolution.displayTitle,
+  sourceTitle: parsedTitle.sourceTitle,
+  detectedTitle: resolution.detectedTitle,
+  titleMatchStatus: resolution.status,
+  titleMatchConfidence: Math.round(resolution.confidence * 100),
+  titleMatchType:
+    resolution.mediaType === "unknown" ? null : resolution.mediaType,
+  titleMatchYear: resolution.year,
+});
+
+const parsePostPage = async (
+  url: URL,
+  resolveTitle: (parsedTitle: ParsedScrapedTitle) => Promise<ResolvedTitle>,
+) => {
   const html = await fetchSourceText(url);
   const sourceTitle = cleanText(
     getMetaContent(html, "og:title") ??
@@ -315,11 +351,13 @@ const parsePostPage = async (url: URL) => {
   })()
     .replace(/\.[a-z0-9]+$/i, "")
     .replace(/[-_]+/g, " ");
+  const parsedTitle = parseScrapedTitle(
+    sourceTitle || cleanText(fallbackTitle),
+    url,
+  );
+  const resolution = await resolveTitle(parsedTitle);
   return {
-    title: normalizeScrapedTitle(
-      sourceTitle || cleanText(fallbackTitle),
-      url,
-    ),
+    ...getResolvedTitleFields(parsedTitle, resolution),
     thumbnailUrl: image
       ? new URL(image, url).toString()
       : "/editorial-streaming.jpg",
@@ -362,6 +400,13 @@ const categoryShape = (
 const postShape = (row: {
   id: number;
   title: string;
+  titleSource: string;
+  sourceTitle: string | null;
+  detectedTitle: string | null;
+  titleMatchStatus: string;
+  titleMatchConfidence: number | null;
+  titleMatchType: string | null;
+  titleMatchYear: number | null;
   slug: string;
   thumbnailUrl: string;
   excerpt: string;
@@ -394,9 +439,34 @@ const postShape = (row: {
   };
 };
 
+const adminPostShape = (
+  row: Parameters<typeof postShape>[0] & {
+    sourceDomain: string;
+    published: boolean;
+  },
+) => ({
+  ...postShape(row),
+  status: row.published ? "published" : "draft",
+  sourceDomain: row.sourceDomain,
+  titleSource: row.titleSource,
+  sourceTitle: row.sourceTitle,
+  detectedTitle: row.detectedTitle,
+  titleMatchStatus: row.titleMatchStatus,
+  titleMatchConfidence: row.titleMatchConfidence,
+  titleMatchType: row.titleMatchType,
+  titleMatchYear: row.titleMatchYear,
+});
+
 const postSelection = {
   id: postsTable.id,
   title: postsTable.title,
+  titleSource: postsTable.titleSource,
+  sourceTitle: postsTable.sourceTitle,
+  detectedTitle: postsTable.detectedTitle,
+  titleMatchStatus: postsTable.titleMatchStatus,
+  titleMatchConfidence: postsTable.titleMatchConfidence,
+  titleMatchType: postsTable.titleMatchType,
+  titleMatchYear: postsTable.titleMatchYear,
   slug: postsTable.slug,
   thumbnailUrl: postsTable.thumbnailUrl,
   excerpt: postsTable.excerpt,
@@ -640,9 +710,7 @@ router.get("/admin/posts", async (req, res): Promise<void> => {
   res.json(
     ListAdminPostsResponse.parse(
       rows.map((row) => ({
-        ...postShape(row),
-        status: row.published ? "published" : "draft",
-        sourceDomain: row.sourceDomain,
+        ...adminPostShape(row),
       })),
     ),
   );
@@ -692,9 +760,7 @@ router.patch("/admin/posts/:id", async (req, res): Promise<void> => {
   }
   res.json(
     UpdateAdminPostResponse.parse({
-      ...postShape(row),
-      status: row.published ? "published" : "draft",
-      sourceDomain: row.sourceDomain,
+      ...adminPostShape(row),
     }),
   );
 });
@@ -777,6 +843,9 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
   const offset = Math.max(0, Math.floor(parsed.data.offset));
 
   try {
+    const resolveTitle = createTmdbTitleResolver(
+      await getConfiguredTmdbApiKey(),
+    );
     const sitemapXml = await fetchSourceText(sitemapUrl);
     const sitemapEntries = getUniqueSitemapEntries(
       sitemapXml,
@@ -787,12 +856,7 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
       offset,
       offset + SITEMAP_BATCH_SIZE,
     );
-    const candidates: Array<{
-      url: string;
-      title: string;
-      thumbnailUrl: string;
-      publishedAt: Date | null;
-    }> = [];
+    const candidates: SitemapCandidate[] = [];
     let failed = 0;
 
     for (
@@ -811,7 +875,7 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
             return {
               url: entry.url,
               publishedAt: entry.lastmod,
-              ...(await parsePostPage(parsedPostUrl)),
+              ...(await parsePostPage(parsedPostUrl, resolveTitle)),
             };
           } catch (error) {
             req.log.warn(
@@ -842,7 +906,7 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
       insert: async (candidate, sourcePublishedAt, candidateIndex) => {
         if (
           containsBlockedImportTerms(
-            candidate.title,
+            candidate.sourceTitle ?? candidate.title,
             candidate.url,
             candidate.thumbnailUrl,
           )
@@ -854,6 +918,15 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
           .values({
             title: candidate.title,
             titleSource: "auto",
+            sourceTitle: candidate.sourceTitle ?? null,
+            detectedTitle: candidate.detectedTitle ?? null,
+            titleMatchStatus: candidate.titleMatchStatus ?? "unmatched",
+            titleMatchConfidence: candidate.titleMatchConfidence ?? null,
+            titleMatchType:
+              candidate.titleMatchType === "unknown"
+                ? null
+                : candidate.titleMatchType ?? null,
+            titleMatchYear: candidate.titleMatchYear ?? null,
             slug: `${slugify(candidate.title)}-${Date.now().toString(36)}-${offset + candidateIndex}`,
             thumbnailUrl: candidate.thumbnailUrl,
             excerpt: buildImportedExcerpt(candidate.title),
@@ -867,12 +940,21 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
           .returning({ id: postsTable.id });
         if (created) return true;
         const [existing] = await db
-          .select({ titleSource: postsTable.titleSource })
+          .select({
+            titleSource: postsTable.titleSource,
+            sourceTitle: postsTable.sourceTitle,
+          })
           .from(postsTable)
           .where(eq(postsTable.sourceUrl, candidate.url));
         const duplicateUpdate: {
           publishedAt?: Date;
           title?: string;
+          sourceTitle?: string | null;
+          detectedTitle?: string | null;
+          titleMatchStatus?: string;
+          titleMatchConfidence?: number | null;
+          titleMatchType?: string | null;
+          titleMatchYear?: number | null;
         } = {};
         if (candidate.publishedAt) {
           duplicateUpdate.publishedAt = sourcePublishedAt;
@@ -882,6 +964,19 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
             duplicateUpdate,
             getImportedTitleUpdate(existing.titleSource, candidate.title),
           );
+        }
+        Object.assign(duplicateUpdate, {
+          detectedTitle: candidate.detectedTitle ?? null,
+          titleMatchStatus: candidate.titleMatchStatus ?? "unmatched",
+          titleMatchConfidence: candidate.titleMatchConfidence ?? null,
+          titleMatchType:
+            candidate.titleMatchType === "unknown"
+              ? null
+              : candidate.titleMatchType ?? null,
+          titleMatchYear: candidate.titleMatchYear ?? null,
+        });
+        if (!existing?.sourceTitle && candidate.sourceTitle) {
+          duplicateUpdate.sourceTitle = candidate.sourceTitle;
         }
         if (Object.keys(duplicateUpdate).length > 0) {
           await db
@@ -982,7 +1077,7 @@ router.post("/admin/import", async (req, res): Promise<void> => {
         ? thumbBlocks
         : postDivBlocks
   ).slice(0, 80);
-  const candidates = blocks
+  const parsedCandidates = blocks
     .map((block) => {
       const linkMatches = [
         ...block.matchAll(
@@ -1004,8 +1099,9 @@ router.post("/admin/import", async (req, res): Promise<void> => {
       if (!link?.[1] || title.length < 4) return null;
       try {
         const candidateUrl = new URL(link[1], source).toString();
+        const parsedTitle = parseScrapedTitle(title, candidateUrl);
         return {
-          title: normalizeScrapedTitle(title, candidateUrl),
+          parsedTitle,
           url: candidateUrl,
           thumbnailUrl: imageMatch?.[1]
             ? new URL(imageMatch[1], source).toString()
@@ -1018,9 +1114,36 @@ router.post("/admin/import", async (req, res): Promise<void> => {
     .filter(
       (
         candidate,
-      ): candidate is { title: string; url: string; thumbnailUrl: string } =>
+      ): candidate is {
+        parsedTitle: ParsedScrapedTitle;
+        url: string;
+        thumbnailUrl: string;
+      } =>
         Boolean(candidate),
     );
+  const resolveTitle = createTmdbTitleResolver(
+    await getConfiguredTmdbApiKey(),
+  );
+  const candidates: SitemapCandidate[] = [];
+  for (
+    let index = 0;
+    index < parsedCandidates.length;
+    index += PAGE_FETCH_CONCURRENCY
+  ) {
+    const resolvedBatch = await Promise.all(
+      parsedCandidates
+        .slice(index, index + PAGE_FETCH_CONCURRENCY)
+        .map(async (candidate) => ({
+          url: candidate.url,
+          thumbnailUrl: candidate.thumbnailUrl,
+          ...getResolvedTitleFields(
+            candidate.parsedTitle,
+            await resolveTitle(candidate.parsedTitle),
+          ),
+        })),
+    );
+    candidates.push(...resolvedBatch);
+  }
 
   let imported = 0;
   let skipped = 0;
@@ -1029,7 +1152,7 @@ router.post("/admin/import", async (req, res): Promise<void> => {
   for (const [candidateIndex, candidate] of candidates.entries()) {
     if (
       containsBlockedImportTerms(
-        candidate.title,
+        candidate.sourceTitle ?? candidate.title,
         candidate.url,
         candidate.thumbnailUrl,
       )
@@ -1044,6 +1167,7 @@ router.post("/admin/import", async (req, res): Promise<void> => {
       .select({
         id: postsTable.id,
         titleSource: postsTable.titleSource,
+        sourceTitle: postsTable.sourceTitle,
       })
       .from(postsTable)
       .where(eq(postsTable.sourceUrl, candidate.url));
@@ -1053,6 +1177,17 @@ router.post("/admin/import", async (req, res): Promise<void> => {
         .set({
           publishedAt: sourcePublishedAt,
           ...getImportedTitleUpdate(existing.titleSource, candidate.title),
+          detectedTitle: candidate.detectedTitle ?? null,
+          titleMatchStatus: candidate.titleMatchStatus ?? "unmatched",
+          titleMatchConfidence: candidate.titleMatchConfidence ?? null,
+          titleMatchType:
+            candidate.titleMatchType === "unknown"
+              ? null
+              : candidate.titleMatchType ?? null,
+          titleMatchYear: candidate.titleMatchYear ?? null,
+          ...(!existing.sourceTitle && candidate.sourceTitle
+            ? { sourceTitle: candidate.sourceTitle }
+            : {}),
         })
         .where(eq(postsTable.id, existing.id));
       skipped += 1;
@@ -1064,6 +1199,15 @@ router.post("/admin/import", async (req, res): Promise<void> => {
       .values({
         title: candidate.title,
         titleSource: "auto",
+        sourceTitle: candidate.sourceTitle ?? null,
+        detectedTitle: candidate.detectedTitle ?? null,
+        titleMatchStatus: candidate.titleMatchStatus ?? "unmatched",
+        titleMatchConfidence: candidate.titleMatchConfidence ?? null,
+        titleMatchType:
+          candidate.titleMatchType === "unknown"
+            ? null
+            : candidate.titleMatchType ?? null,
+        titleMatchYear: candidate.titleMatchYear ?? null,
         slug: uniqueSlug,
         thumbnailUrl: candidate.thumbnailUrl,
         excerpt: buildImportedExcerpt(candidate.title),
@@ -1085,11 +1229,7 @@ router.post("/admin/import", async (req, res): Promise<void> => {
         )
         .where(eq(postsTable.id, created.id));
       if (row) {
-        importedRows.push({
-          ...postShape(row),
-          status: row.published ? "published" : "draft",
-          sourceDomain: row.sourceDomain,
-        });
+        importedRows.push(adminPostShape(row));
       }
     }
   }

@@ -5,15 +5,34 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Check, X, ExternalLink, Globe } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Check, X, ExternalLink, Globe, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+
+type EditablePost = {
+  id: number;
+  title: string;
+  sourceTitle: string | null;
+  detectedTitle: string | null;
+};
 
 export default function AdminPosts() {
   const { data: posts, isLoading } = useListAdminPosts({ status: 'all' });
   const updatePost = useUpdateAdminPost();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [editingPost, setEditingPost] = useState<EditablePost | null>(null);
+  const [editedTitle, setEditedTitle] = useState("");
 
   const handleStatusChange = (id: number, status: 'published' | 'draft') => {
     updatePost.mutate({ id, data: { status } }, {
@@ -26,12 +45,66 @@ export default function AdminPosts() {
     });
   };
 
+  const openTitleEditor = (post: EditablePost) => {
+    setEditingPost(post);
+    setEditedTitle(post.detectedTitle || post.title);
+  };
+
+  const saveTitle = () => {
+    if (!editingPost || editedTitle.trim().length < 2) return;
+    updatePost.mutate(
+      { id: editingPost.id, data: { title: editedTitle.trim() } },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Title saved",
+            description: "This manual title will not be overwritten by imports.",
+          });
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/posts"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+          setEditingPost(null);
+        },
+        onError: () => {
+          toast({
+            title: "Title could not be saved",
+            description: "Please try again.",
+            variant: "destructive",
+          });
+        },
+      },
+    );
+  };
+
+  const matchBadge = (post: NonNullable<typeof posts>[number]) => {
+    if (post.titleSource === "manual") {
+      return <Badge variant="outline" className="border-slate-200 text-slate-600">Manual</Badge>;
+    }
+    if (post.titleMatchStatus === "matched") {
+      return (
+        <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+          TMDB matched {post.titleMatchConfidence ?? 0}%
+        </Badge>
+      );
+    }
+    if (post.titleMatchStatus === "review") {
+      return (
+        <Badge className="border-0 bg-orange-100 text-orange-700 hover:bg-orange-100">
+          Review {post.titleMatchConfidence ?? 0}%
+        </Badge>
+      );
+    }
+    if (post.titleMatchStatus === "unavailable") {
+      return <Badge variant="outline" className="text-slate-500">TMDB unavailable</Badge>;
+    }
+    return <Badge variant="outline" className="text-rose-600">No confident match</Badge>;
+  };
+
   return (
     <AdminLayout>
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-display font-bold text-gray-900 mb-2">Posts Moderation</h1>
-          <p className="text-muted-foreground">Manage visibility of imported content.</p>
+          <p className="text-muted-foreground">Review detected names, correct uncertain matches, and manage visibility.</p>
         </div>
       </div>
 
@@ -39,7 +112,7 @@ export default function AdminPosts() {
         <Table>
           <TableHeader className="bg-gray-50/50">
             <TableRow>
-              <TableHead>Title</TableHead>
+              <TableHead>Title detection</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Source</TableHead>
               <TableHead>Status</TableHead>
@@ -66,8 +139,25 @@ export default function AdminPosts() {
             ) : (
               posts?.map((post) => (
                 <TableRow key={post.id} className="group">
-                  <TableCell className="font-medium text-gray-900 max-w-[300px] truncate">
-                    {post.title}
+                  <TableCell className="max-w-[420px]">
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium text-gray-900">{post.title}</span>
+                        {matchBadge(post)}
+                      </div>
+                      {post.detectedTitle && post.detectedTitle !== post.title && (
+                        <p className="text-xs text-orange-700">
+                          Suggested: {post.detectedTitle}
+                          {post.titleMatchYear ? ` (${post.titleMatchYear})` : ""}
+                          {post.titleMatchType ? ` · ${post.titleMatchType === "tv" ? "TV" : "Movie"}` : ""}
+                        </p>
+                      )}
+                      {post.sourceTitle && (
+                        <p className="truncate text-xs text-gray-400" title={post.sourceTitle}>
+                          Original: {post.sourceTitle}
+                        </p>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className="font-normal">{post.category.name}</Badge>
@@ -87,6 +177,15 @@ export default function AdminPosts() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-gray-400 hover:text-gray-900"
+                        onClick={() => openTitleEditor(post)}
+                        aria-label={`Edit title for ${post.title}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       {post.sourceUrl && (
                         <a href={post.sourceUrl} target="_blank" rel="noopener noreferrer">
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-900">
@@ -123,6 +222,65 @@ export default function AdminPosts() {
           </TableBody>
         </Table>
       </Card>
+
+      <Dialog
+        open={Boolean(editingPost)}
+        onOpenChange={(open) => {
+          if (!open && !updatePost.isPending) setEditingPost(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Review movie or series name</DialogTitle>
+            <DialogDescription>
+              Save the detected name or correct it. A saved manual title stays authoritative during future imports.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {editingPost?.sourceTitle && (
+              <div className="rounded-lg bg-slate-50 p-3">
+                <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">Original scraped title</p>
+                <p className="text-sm text-slate-700">{editingPost.sourceTitle}</p>
+              </div>
+            )}
+            {editingPost?.detectedTitle && (
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Detected name</p>
+                <p className="mt-1 text-sm font-medium text-slate-900">{editingPost.detectedTitle}</p>
+              </div>
+            )}
+            <div>
+              <label htmlFor="reviewed-title" className="mb-2 block text-sm font-medium text-slate-800">
+                Final public title
+              </label>
+              <Input
+                id="reviewed-title"
+                value={editedTitle}
+                onChange={(event) => setEditedTitle(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") saveTitle();
+                }}
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditingPost(null)}
+              disabled={updatePost.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={saveTitle}
+              disabled={updatePost.isPending || editedTitle.trim().length < 2}
+            >
+              {updatePost.isPending ? "Saving..." : "Save manual title"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }

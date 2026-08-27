@@ -97,6 +97,13 @@ export default function AdminFetch() {
     sourceUrl: string;
     imported: number;
     skipped: number;
+    items: Array<{
+      id: number;
+      title: string;
+      detectedTitle: string | null;
+      titleMatchStatus: "matched" | "review" | "unmatched" | "unavailable";
+      titleMatchConfidence: number | null;
+    }>;
   } | null>(null);
 
   const form = useForm<z.infer<typeof importSchema>>({
@@ -500,17 +507,65 @@ export default function AdminFetch() {
                 </Button>
               </div>
               {catalogResult && (
-                <Alert className="border-emerald-200 bg-emerald-50">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                  <AlertTitle className="text-emerald-800">
-                    Catalog Import Complete
-                  </AlertTitle>
-                  <AlertDescription className="text-emerald-700">
-                    Processed <strong>{catalogResult.sourceUrl}</strong>.
-                    Published {catalogResult.imported} new posts and skipped{" "}
-                    {catalogResult.skipped} existing posts.
-                  </AlertDescription>
-                </Alert>
+                <div className="space-y-4">
+                  <Alert className="border-emerald-200 bg-emerald-50">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    <AlertTitle className="text-emerald-800">
+                      Catalog Import Complete
+                    </AlertTitle>
+                    <AlertDescription className="text-emerald-700">
+                      Processed <strong>{catalogResult.sourceUrl}</strong>.
+                      Published {catalogResult.imported} new posts and skipped{" "}
+                      {catalogResult.skipped} existing posts.
+                    </AlertDescription>
+                  </Alert>
+                  {catalogResult.items.length > 0 && (
+                    <div className="overflow-hidden rounded-xl border">
+                      <div className="border-b bg-muted/40 px-4 py-3">
+                        <h3 className="text-sm font-semibold">Detected titles</h3>
+                        <p className="text-xs text-muted-foreground">
+                          Review uncertain names before publishing changes.
+                        </p>
+                      </div>
+                      <div className="divide-y">
+                        {catalogResult.items.slice(0, 10).map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">
+                                {item.title}
+                              </p>
+                              {item.detectedTitle &&
+                                item.detectedTitle !== item.title && (
+                                  <p className="truncate text-xs text-muted-foreground">
+                                    Suggested: {item.detectedTitle}
+                                  </p>
+                                )}
+                            </div>
+                            <Badge
+                              variant={
+                                item.titleMatchStatus === "unmatched"
+                                  ? "destructive"
+                                  : "outline"
+                              }
+                              className="w-fit shrink-0"
+                            >
+                              {item.titleMatchStatus === "matched"
+                                ? `TMDB matched ${item.titleMatchConfidence ?? 0}%`
+                                : item.titleMatchStatus === "review"
+                                  ? `Review ${item.titleMatchConfidence ?? 0}%`
+                                  : item.titleMatchStatus === "unavailable"
+                                    ? "TMDB unavailable"
+                                    : "No confident match"}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </CardContent>
           </Card>

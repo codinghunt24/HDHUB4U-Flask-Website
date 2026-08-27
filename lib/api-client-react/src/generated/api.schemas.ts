@@ -36,10 +36,55 @@ export const AdminPostStatus = {
   draft: 'draft',
 } as const;
 
-export type AdminPost = Post & {
+export type AdminPostTitleSource = typeof AdminPostTitleSource[keyof typeof AdminPostTitleSource];
+
+
+export const AdminPostTitleSource = {
+  auto: 'auto',
+  manual: 'manual',
+} as const;
+
+export type AdminPostTitleMatchStatus = typeof AdminPostTitleMatchStatus[keyof typeof AdminPostTitleMatchStatus];
+
+
+export const AdminPostTitleMatchStatus = {
+  matched: 'matched',
+  review: 'review',
+  unmatched: 'unmatched',
+  unavailable: 'unavailable',
+} as const;
+
+/**
+ * @nullable
+ */
+export type AdminPostTitleMatchType = typeof AdminPostTitleMatchType[keyof typeof AdminPostTitleMatchType] | null;
+
+
+export const AdminPostTitleMatchType = {
+  movie: 'movie',
+  tv: 'tv',
+} as const;
+
+export type AdminPost = Post & ({
   status: AdminPostStatus;
   sourceDomain: string;
-};
+  titleSource: AdminPostTitleSource;
+  /** @nullable */
+  sourceTitle: string | null;
+  /** @nullable */
+  detectedTitle: string | null;
+  titleMatchStatus: AdminPostTitleMatchStatus;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  titleMatchConfidence: number | null;
+  /** @nullable */
+  titleMatchType: AdminPostTitleMatchType;
+  /** @nullable */
+  titleMatchYear: number | null;
+});
 
 export interface PostList {
   items: Post[];

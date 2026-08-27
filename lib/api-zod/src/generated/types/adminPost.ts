@@ -6,9 +6,28 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AdminPostStatus } from './adminPostStatus';
+import type { AdminPostTitleMatchStatus } from './adminPostTitleMatchStatus';
+import type { AdminPostTitleMatchType } from './adminPostTitleMatchType';
+import type { AdminPostTitleSource } from './adminPostTitleSource';
 import type { Post } from './post';
 
-export type AdminPost = Post & {
+export type AdminPost = Post & ({
   status: AdminPostStatus;
   sourceDomain: string;
-};
+  titleSource: AdminPostTitleSource;
+  /** @nullable */
+  sourceTitle: string | null;
+  /** @nullable */
+  detectedTitle: string | null;
+  titleMatchStatus: AdminPostTitleMatchStatus;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  titleMatchConfidence: number | null;
+  /** @nullable */
+  titleMatchType: AdminPostTitleMatchType;
+  /** @nullable */
+  titleMatchYear: number | null;
+});

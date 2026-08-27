@@ -1,5 +1,17 @@
 const MAX_SCRAPED_TITLE_LENGTH = 120;
 
+export type ScrapedTitleMediaType = "movie" | "tv" | "unknown";
+
+export type ParsedScrapedTitle = {
+  sourceTitle: string;
+  normalizedTitle: string;
+  candidateTitle: string;
+  year: number | null;
+  mediaType: ScrapedTitleMediaType;
+  season: number | null;
+  episode: number | null;
+};
+
 const decodeTitleEntities = (value: string) =>
   value
     .replace(/&amp;|&#0*38;/gi, "&")
@@ -110,6 +122,87 @@ export const normalizeScrapedTitle = (
 
   if (title.length < 3) return "Imported Post";
   return truncateAtWord(title, MAX_SCRAPED_TITLE_LENGTH);
+};
+
+const RELEASE_NOISE_SOURCE =
+  String.raw`\b(?:V\d+|Dual\s+Audio|Multi\s+Audio|HQ-?HDTC|HDTC|WEB-?DL|WEBRIP|BLU-?RAY|DVDRIP|HDRIP|CAMRIP|CAM|UHD|HD|HQ|HEVC|X26[45]|DDP?\d(?:\.\d)?|AAC|ESUBS?|2160P|1080P|720P|480P|360P|Get|See)\b`;
+const LANGUAGE_RELEASE_NOISE =
+  /\b(?:Hindi|English|Tamil|Telugu|Kannada|Malayalam|Bengali|Punjabi|Marathi|Gujarati)(?:\s*[-/+]\s*(?:Hindi|English|Tamil|Telugu|Kannada|Malayalam|Bengali|Punjabi|Marathi|Gujarati))*\b(?=\s+(?:Dual\s+Audio|Multi\s+Audio|HQ-?HDTC|HDTC|WEB-?DL|WEBRIP|BLU-?RAY|DVDRIP|HDRIP|CAMRIP|CAM|UHD|HD|HQ|HEVC|X26[45]|DDP?\d(?:\.\d)?|AAC|ESUBS?|2160P|1080P|720P|480P|360P)\b)/gi;
+
+const getFallbackCandidateTitle = (normalizedTitle: string) =>
+  normalizedTitle
+    .replace(/\s+(?:Get|See)(?:\s+Online)?\s*$/i, "")
+    .replace(/[\s,;:|/–—([{-]+$/g, "")
+    .trim();
+
+export const parseScrapedTitle = (
+  sourceTitle: string,
+  sourceUrl?: string | URL | null,
+): ParsedScrapedTitle => {
+  const normalizedTitle = normalizeScrapedTitle(sourceTitle, sourceUrl);
+  const yearMatch = normalizedTitle.match(/\b((?:19|20)\d{2})\b/);
+  const seasonEpisodeMatch = normalizedTitle.match(
+    /\bS(\d{1,2})(?:E(\d{1,3}))?\b/i,
+  );
+  const seasonWordMatch = normalizedTitle.match(
+    /\bSeason\s+(\d{1,2})(?:\s+Episode\s+(\d{1,3}))?\b/i,
+  );
+  const episodeWordMatch = normalizedTitle.match(/\bEpisode\s+(\d{1,3})\b/i);
+  const seriesMarkerMatch =
+    seasonEpisodeMatch ??
+    seasonWordMatch ??
+    episodeWordMatch ??
+    normalizedTitle.match(
+      /\b(?:Complete\s+(?:Web\s+|TV\s+)?Series|Web\s+Series|TV\s+Series|Series)\b/i,
+    );
+  const movieMarkerMatch = sourceTitle.match(/\b(?:Full\s+)?Movie\b/i);
+  const mediaType: ScrapedTitleMediaType = seriesMarkerMatch
+    ? "tv"
+    : movieMarkerMatch
+      ? "movie"
+      : "unknown";
+  const noiseBoundary = [
+    ...normalizedTitle.matchAll(new RegExp(RELEASE_NOISE_SOURCE, "gi")),
+  ].find((match) => typeof match.index === "number" && match.index > 0)?.index;
+  const languageBoundary = [...normalizedTitle.matchAll(LANGUAGE_RELEASE_NOISE)]
+    .find((match) => typeof match.index === "number" && match.index > 0)?.index;
+  const boundaries = [
+    yearMatch?.index,
+    seriesMarkerMatch?.index,
+    noiseBoundary,
+    languageBoundary,
+  ].filter(
+    (index): index is number =>
+      typeof index === "number" && index > 0,
+  );
+  const candidateEnd =
+    boundaries.length > 0 ? Math.min(...boundaries) : normalizedTitle.length;
+  const candidateTitle =
+    getFallbackCandidateTitle(normalizedTitle.slice(0, candidateEnd)) ||
+    getFallbackCandidateTitle(normalizedTitle);
+
+  return {
+    sourceTitle: decodeTitleEntities(sourceTitle)
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+    normalizedTitle,
+    candidateTitle: candidateTitle || "Imported Post",
+    year: yearMatch ? Number(yearMatch[1]) : null,
+    mediaType,
+    season: seasonEpisodeMatch?.[1]
+      ? Number(seasonEpisodeMatch[1])
+      : seasonWordMatch?.[1]
+        ? Number(seasonWordMatch[1])
+        : null,
+    episode: seasonEpisodeMatch?.[2]
+      ? Number(seasonEpisodeMatch[2])
+      : seasonWordMatch?.[2]
+        ? Number(seasonWordMatch[2])
+        : episodeWordMatch?.[1]
+          ? Number(episodeWordMatch[1])
+          : null,
+  };
 };
 
 export const getImportedTitleUpdate = (

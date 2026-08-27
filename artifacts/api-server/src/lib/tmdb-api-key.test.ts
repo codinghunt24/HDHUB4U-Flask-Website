@@ -25,7 +25,15 @@ test("rejects tampered encrypted TMDB API keys", () => {
   const encrypted = encryptTmdbApiKey(
     "0123456789abcdef0123456789abcdef",
   );
-  const tampered = `${encrypted.slice(0, -1)}${encrypted.endsWith("A") ? "B" : "A"}`;
+  const [version, iv, authTag, ciphertext] = encrypted.split(".");
+  const tamperedCiphertext = Buffer.from(ciphertext, "base64url");
+  tamperedCiphertext[0] ^= 1;
+  const tampered = [
+    version,
+    iv,
+    authTag,
+    tamperedCiphertext.toString("base64url"),
+  ].join(".");
 
   assert.throws(() => decryptTmdbApiKey(tampered));
 });

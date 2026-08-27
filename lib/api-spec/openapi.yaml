@@ -419,12 +419,40 @@ components:
       allOf:
         - $ref: "#/components/schemas/Post"
         - type: object
-          required: [status, sourceDomain]
+          required:
+            [
+              status,
+              sourceDomain,
+              titleSource,
+              sourceTitle,
+              detectedTitle,
+              titleMatchStatus,
+              titleMatchConfidence,
+              titleMatchType,
+              titleMatchYear,
+            ]
           properties:
             status:
               type: string
               enum: [published, draft]
             sourceDomain: { type: string }
+            titleSource:
+              type: string
+              enum: [auto, manual]
+            sourceTitle: { type: ["string", "null"] }
+            detectedTitle: { type: ["string", "null"] }
+            titleMatchStatus:
+              type: string
+              enum: [matched, review, unmatched, unavailable]
+            titleMatchConfidence:
+              type: ["number", "null"]
+              minimum: 0
+              maximum: 100
+            titleMatchType:
+              type: ["string", "null"]
+              enum: [movie, tv, null]
+            titleMatchYear:
+              type: ["number", "null"]
     PostList:
       type: object
       required: [items, page, limit, total, totalPages]

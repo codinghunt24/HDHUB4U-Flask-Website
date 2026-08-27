@@ -244,6 +244,12 @@ export type SitemapCandidate = {
   title: string;
   thumbnailUrl: string;
   publishedAt?: Date | null;
+  sourceTitle?: string | null;
+  detectedTitle?: string | null;
+  titleMatchStatus?: "matched" | "review" | "unmatched" | "unavailable";
+  titleMatchConfidence?: number | null;
+  titleMatchType?: "movie" | "tv" | "unknown" | null;
+  titleMatchYear?: number | null;
 };
 
 export const persistSitemapCandidates = async (

@@ -34,6 +34,14 @@ export const postsTable = pgTable(
     id: serial("id").primaryKey(),
     title: text("title").notNull(),
     titleSource: text("title_source").notNull().default("manual"),
+    sourceTitle: text("source_title"),
+    detectedTitle: text("detected_title"),
+    titleMatchStatus: text("title_match_status")
+      .notNull()
+      .default("unmatched"),
+    titleMatchConfidence: integer("title_match_confidence"),
+    titleMatchType: text("title_match_type"),
+    titleMatchYear: integer("title_match_year"),
     slug: text("slug").notNull(),
     thumbnailUrl: text("thumbnail_url").notNull(),
     excerpt: text("excerpt").notNull().default(""),
