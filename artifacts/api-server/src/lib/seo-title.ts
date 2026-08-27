@@ -88,15 +88,17 @@ export const normalizeScrapedTitle = (
   }
 
   title = title
-    .replace(/\b(?:watch|stream)(?:\s+online)?\b/gi, " ")
-    .replace(/\b(?:free\s+)?download\b/gi, " ")
+    .replace(/\bwatch\b/gi, " See ")
+    .replace(/\bstream(?:\s+online)?\b/gi, " ")
+    .replace(/\bdownload\b/gi, " Get ")
+    .replace(/\bfree\s+(?=Get\b)/gi, " ")
     .replace(/\bfull\s+(?:movie|series)\b/gi, " ")
     .replace(/\bclick\s+here\b/gi, " ")
     .replace(/\s+/g, " ")
     .replace(/^[\s,;:|/–—-]+|[\s,;:|/–—-]+$/g, "")
     .trim();
 
-  if (title.length < 3) {
+  if (title.length < 3 || /^(?:Get|See(?:\s+Online)?)$/i.test(title)) {
     title = titleFromUrl(sourceUrl);
   }
 

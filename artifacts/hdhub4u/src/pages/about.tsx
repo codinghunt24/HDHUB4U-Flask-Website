@@ -9,7 +9,7 @@ export default function AboutPage() {
           Welcome to our editorial catalog. We are dedicated to providing the latest, most accurate updates and listings for entertainment content.
         </p>
         <p>
-          Our platform aggregates metadata, structured information, and reviews to help you discover the perfect content to watch. We operate as an informational catalog and metadata index.
+          Our platform aggregates metadata, structured information, and reviews to help you discover the perfect content to see. We operate as an informational catalog and metadata index.
         </p>
         <h2>Our Mission</h2>
         <p>

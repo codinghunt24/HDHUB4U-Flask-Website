@@ -8,7 +8,7 @@ test("keeps verified release details while removing promotional noise", () => {
       "TOXIC (2026) V2 HQ-HDTC [Hindi-Kannada-Tamil-Telugu] 1080p 720p 480p | Full Movie Download | HDHUB4U",
       "https://new5.hdhub4u.cl/toxic-2026-hindi-line-v2-hdtc-full-movie/",
     ),
-    "Toxic (2026) V2 HQ-HDTC Hindi-Kannada-Tamil-Telugu 1080p 720p 480p",
+    "Toxic (2026) V2 HQ-HDTC Hindi-Kannada-Tamil-Telugu 1080p 720p 480p Get",
   );
 });
 
@@ -28,7 +28,7 @@ test("decodes entities and removes duplicate adjacent words", () => {
       "Movie Movie &amp; Stories | Watch Online",
       "https://public.example/movie-stories/",
     ),
-    "Movie & Stories",
+    "Movie & Stories See Online",
   );
 });
 

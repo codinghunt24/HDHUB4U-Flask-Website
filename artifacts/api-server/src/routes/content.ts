@@ -58,6 +58,8 @@ import {
 import {
   buildImportedExcerpt,
   cleanImportedExcerpt,
+  containsBlockedImportTerms,
+  replaceVisitorTerms,
 } from "../lib/imported-content";
 
 const router: IRouter = Router();
@@ -362,23 +364,26 @@ const postShape = (row: {
   categoryName: string;
   categorySlug: string;
   categoryPostCount: number;
-}) => ({
-  id: row.id,
-  title: row.title,
-  slug: row.slug,
-  thumbnailUrl: row.thumbnailUrl,
-  excerpt: cleanImportedExcerpt(row.excerpt, row.title),
-  sourceUrl: row.sourceUrl,
-  category: categoryShape(
-    {
-      id: row.categoryId,
-      name: row.categoryName,
-      slug: row.categorySlug,
-    },
-    Number(row.categoryPostCount),
-  ),
-  publishedAt: row.publishedAt,
-});
+}) => {
+  const publicTitle = replaceVisitorTerms(row.title);
+  return {
+    id: row.id,
+    title: publicTitle,
+    slug: row.slug,
+    thumbnailUrl: row.thumbnailUrl,
+    excerpt: cleanImportedExcerpt(row.excerpt, publicTitle),
+    sourceUrl: row.sourceUrl,
+    category: categoryShape(
+      {
+        id: row.categoryId,
+        name: row.categoryName,
+        slug: row.categorySlug,
+      },
+      Number(row.categoryPostCount),
+    ),
+    publishedAt: row.publishedAt,
+  };
+};
 
 const postSelection = {
   id: postsTable.id,
@@ -826,6 +831,15 @@ router.post("/admin/sitemaps/scrape", async (req, res): Promise<void> => {
     const { imported, skipped } = await persistSitemapCandidates(candidates, {
       offset,
       insert: async (candidate, sourcePublishedAt, candidateIndex) => {
+        if (
+          containsBlockedImportTerms(
+            candidate.title,
+            candidate.url,
+            candidate.thumbnailUrl,
+          )
+        ) {
+          return false;
+        }
         const [created] = await db
           .insert(postsTable)
           .values({
@@ -1004,6 +1018,16 @@ router.post("/admin/import", async (req, res): Promise<void> => {
   const importedRows = [];
   const importTimestamp = Date.now();
   for (const [candidateIndex, candidate] of candidates.entries()) {
+    if (
+      containsBlockedImportTerms(
+        candidate.title,
+        candidate.url,
+        candidate.thumbnailUrl,
+      )
+    ) {
+      skipped += 1;
+      continue;
+    }
     // The source listing is newest-first. Preserve that order in our catalog
     // even when all items are imported during the same request.
     const sourcePublishedAt = new Date(importTimestamp - candidateIndex * 1000);

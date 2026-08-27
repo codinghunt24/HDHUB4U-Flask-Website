@@ -102,7 +102,7 @@ export default function PostPage() {
 
           <div className="mt-12 p-8 bg-gray-50 rounded-2xl border flex flex-col sm:flex-row items-center justify-between gap-6">
             <div>
-              <h3 className="text-lg font-bold text-gray-900 m-0 mb-1">Watch or Download</h3>
+              <h3 className="text-lg font-bold text-gray-900 m-0 mb-1">See or Get</h3>
               <p className="text-gray-500 text-sm m-0">Available from authorized source</p>
             </div>
             {post.sourceUrl ? (
