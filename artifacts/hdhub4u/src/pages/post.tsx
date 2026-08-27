@@ -73,7 +73,7 @@ export default function PostPage() {
             </div>
           </div>
           
-          <h1 className="text-4xl md:text-5xl font-display font-bold text-gray-900 leading-tight">
+          <h1 className="text-[20px] font-display font-semibold text-white leading-tight">
             {post.title}
           </h1>
         </div>
