@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, FileText, Download, Tags, Settings, Activity, Map, LogOut } from "lucide-react";
+import { LayoutDashboard, FileText, Download, Tags, Settings, Activity, Map, KeyRound, LogOut } from "lucide-react";
 import { useGetAdminSession, useAdminLogout } from "@workspace/api-client-react";
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { href: "/admin/analytics", label: "Analytics", icon: Activity },
   { href: "/admin/sitemap", label: "Sitemap", icon: Map },
   { href: "/admin/settings", label: "Settings", icon: Settings },
+  { href: "/admin/tmdb-key", label: "TMDB API Key", icon: KeyRound },
 ];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {

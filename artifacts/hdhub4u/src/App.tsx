@@ -23,6 +23,7 @@ import AdminCategories from './pages/admin-categories';
 import AdminSettings from './pages/admin-settings';
 import AdminSitemap from './pages/admin-sitemap';
 import AdminAnalytics from './pages/admin-analytics'; // will create a stub mapping to settings/analytics idea
+import AdminTmdbApiKey from './pages/admin-tmdb-api-key';
 
 const queryClient = new QueryClient();
 
@@ -67,6 +68,7 @@ function Router() {
         <Route path="/admin/analytics" component={AdminAnalytics} />
         <Route path="/admin/sitemap" component={AdminSitemap} />
         <Route path="/admin/settings" component={AdminSettings} />
+        <Route path="/admin/tmdb-key" component={AdminTmdbApiKey} />
 
         <Route component={NotFound} />
       </Switch>

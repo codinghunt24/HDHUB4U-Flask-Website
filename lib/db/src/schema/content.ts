@@ -68,6 +68,7 @@ export const settingsTable = pgTable("site_settings", {
     .default("Latest entertainment updates and curated editorial posts."),
   analyticsId: text("analytics_id"),
   contactEmail: text("contact_email").notNull().default("contact@hdhub4u.tech"),
+  tmdbApiKeyEncrypted: text("tmdb_api_key_encrypted"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow()

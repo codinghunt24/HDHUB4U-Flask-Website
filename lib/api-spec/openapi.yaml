@@ -323,6 +323,54 @@ paths:
                 $ref: "#/components/schemas/AdminSettings"
         "401":
           description: Unauthorized
+  /admin/tmdb-key:
+    get:
+      operationId: getAdminTmdbApiKey
+      tags: [admin]
+      summary: Get TMDB API key status
+      responses:
+        "200":
+          description: TMDB API key status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTmdbApiKeyStatus"
+        "401":
+          description: Unauthorized
+    put:
+      operationId: saveAdminTmdbApiKey
+      tags: [admin]
+      summary: Save or replace the TMDB API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TmdbApiKeyInput"
+      responses:
+        "200":
+          description: Saved TMDB API key status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTmdbApiKeyStatus"
+        "400":
+          description: Invalid API key
+        "401":
+          description: Unauthorized
+    delete:
+      operationId: deleteAdminTmdbApiKey
+      tags: [admin]
+      summary: Delete the TMDB API key
+      responses:
+        "200":
+          description: Deleted TMDB API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          description: Unauthorized
   /admin/sitemap:
     get:
       operationId: getAdminSitemap
@@ -404,6 +452,17 @@ components:
         siteDescription: { type: string }
         analyticsId: { type: ["string", "null"] }
         contactEmail: { type: string }
+    AdminTmdbApiKeyStatus:
+      type: object
+      required: [configured, maskedKey]
+      properties:
+        configured: { type: boolean }
+        maskedKey: { type: ["string", "null"] }
+    TmdbApiKeyInput:
+      type: object
+      required: [apiKey]
+      properties:
+        apiKey: { type: string, minLength: 1, maxLength: 256 }
     SettingsUpdate:
       type: object
       properties:

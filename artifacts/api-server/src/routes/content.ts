@@ -11,6 +11,7 @@ import {
   DiscoverSitemapsResponse,
   GetAdminSessionResponse,
   GetAdminSettingsResponse,
+  GetAdminTmdbApiKeyResponse,
   GetAdminSitemapResponse,
   GetAdminSummaryResponse,
   GetPostParams,
@@ -30,6 +31,9 @@ import {
   UpdateAdminPostResponse,
   UpdateAdminSettingsBody,
   UpdateAdminSettingsResponse,
+  DeleteAdminTmdbApiKeyResponse,
+  SaveAdminTmdbApiKeyBody,
+  SaveAdminTmdbApiKeyResponse,
 } from "@workspace/api-zod";
 import {
   adminSessionsTable,
@@ -61,6 +65,11 @@ import {
   containsBlockedImportTerms,
   replaceVisitorTerms,
 } from "../lib/imported-content";
+import {
+  decryptTmdbApiKey,
+  encryptTmdbApiKey,
+  maskTmdbApiKey,
+} from "../lib/tmdb-api-key";
 
 const router: IRouter = Router();
 const SESSION_COOKIE = "hdhub4u_admin";
@@ -1129,6 +1138,83 @@ router.patch("/admin/settings", async (req, res): Promise<void> => {
     .onConflictDoUpdate({ target: settingsTable.id, set: parsed.data })
     .returning();
   res.json(UpdateAdminSettingsResponse.parse(settings));
+});
+
+router.get("/admin/tmdb-key", async (req, res): Promise<void> => {
+  if (!(await requireAdmin(req))) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const [settings] = await db
+    .select({ tmdbApiKeyEncrypted: settingsTable.tmdbApiKeyEncrypted })
+    .from(settingsTable)
+    .limit(1);
+  const apiKey = settings?.tmdbApiKeyEncrypted
+    ? decryptTmdbApiKey(settings.tmdbApiKeyEncrypted)
+    : null;
+
+  res.json(
+    GetAdminTmdbApiKeyResponse.parse({
+      configured: Boolean(apiKey),
+      maskedKey: apiKey ? maskTmdbApiKey(apiKey) : null,
+    }),
+  );
+});
+
+router.put("/admin/tmdb-key", async (req, res): Promise<void> => {
+  if (!(await requireAdmin(req))) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const parsed = SaveAdminTmdbApiKeyBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const apiKey = parsed.data.apiKey.trim();
+  if (!apiKey) {
+    res.status(400).json({ error: "TMDB API key cannot be blank" });
+    return;
+  }
+
+  const encryptedApiKey = encryptTmdbApiKey(apiKey);
+  await db
+    .insert(settingsTable)
+    .values({
+      id: 1,
+      tmdbApiKeyEncrypted: encryptedApiKey,
+    })
+    .onConflictDoUpdate({
+      target: settingsTable.id,
+      set: { tmdbApiKeyEncrypted: encryptedApiKey },
+    });
+
+  res.json(
+    SaveAdminTmdbApiKeyResponse.parse({
+      configured: true,
+      maskedKey: maskTmdbApiKey(apiKey),
+    }),
+  );
+});
+
+router.delete("/admin/tmdb-key", async (req, res): Promise<void> => {
+  if (!(await requireAdmin(req))) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  await db
+    .insert(settingsTable)
+    .values({ id: 1, tmdbApiKeyEncrypted: null })
+    .onConflictDoUpdate({
+      target: settingsTable.id,
+      set: { tmdbApiKeyEncrypted: null },
+    });
+
+  res.json(DeleteAdminTmdbApiKeyResponse.parse({ success: true }));
 });
 
 router.get("/admin/sitemap", async (req, res): Promise<void> => {

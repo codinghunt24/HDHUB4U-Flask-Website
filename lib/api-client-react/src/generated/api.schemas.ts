@@ -64,6 +64,20 @@ export interface AdminSettings {
   contactEmail: string;
 }
 
+export interface AdminTmdbApiKeyStatus {
+  configured: boolean;
+  /** @nullable */
+  maskedKey: string | null;
+}
+
+export interface TmdbApiKeyInput {
+  /**
+     * @minLength 1
+     * @maxLength 256
+     */
+  apiKey: string;
+}
+
 export interface SettingsUpdate {
   /** @minLength 1 */
   siteName?: string;

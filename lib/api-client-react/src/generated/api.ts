@@ -25,6 +25,7 @@ import type {
   AdminSession,
   AdminSettings,
   AdminSummary,
+  AdminTmdbApiKeyStatus,
   Category,
   HealthStatus,
   ImportInput,
@@ -41,7 +42,8 @@ import type {
   SitemapInfo,
   SitemapScrapeInput,
   SitemapScrapeResult,
-  SuccessResponse
+  SuccessResponse,
+  TmdbApiKeyInput
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -1275,6 +1277,225 @@ export const useUpdateAdminSettings = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getUpdateAdminSettingsMutationOptions(options));
+    }
+
+export const getGetAdminTmdbApiKeyUrl = () => {
+
+
+
+
+  return `/api/admin/tmdb-key`
+}
+
+/**
+ * @summary Get TMDB API key status
+ */
+export const getAdminTmdbApiKey = async ( options?: Parameters<typeof customFetch>[1]): Promise<AdminTmdbApiKeyStatus> => {
+
+  return customFetch<AdminTmdbApiKeyStatus>(getGetAdminTmdbApiKeyUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminTmdbApiKeyQueryKey = () => {
+    return [
+    `/api/admin/tmdb-key`
+    ] as const;
+    }
+
+
+export const getGetAdminTmdbApiKeyQueryOptions = <TData = Awaited<ReturnType<typeof getAdminTmdbApiKey>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminTmdbApiKey>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminTmdbApiKeyQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminTmdbApiKey>>> = ({ signal }) => getAdminTmdbApiKey({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminTmdbApiKey>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminTmdbApiKeyQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminTmdbApiKey>>>
+export type GetAdminTmdbApiKeyQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get TMDB API key status
+ */
+
+export function useGetAdminTmdbApiKey<TData = Awaited<ReturnType<typeof getAdminTmdbApiKey>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminTmdbApiKey>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminTmdbApiKeyQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSaveAdminTmdbApiKeyUrl = () => {
+
+
+
+
+  return `/api/admin/tmdb-key`
+}
+
+/**
+ * @summary Save or replace the TMDB API key
+ */
+export const saveAdminTmdbApiKey = async (tmdbApiKeyInput: TmdbApiKeyInput, options?: Parameters<typeof customFetch>[1]): Promise<AdminTmdbApiKeyStatus> => {
+
+  return customFetch<AdminTmdbApiKeyStatus>(getSaveAdminTmdbApiKeyUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tmdbApiKeyInput)
+  }
+);}
+
+
+
+
+
+export const getSaveAdminTmdbApiKeyMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveAdminTmdbApiKey>>, TError,{data: BodyType<TmdbApiKeyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveAdminTmdbApiKey>>, TError,{data: BodyType<TmdbApiKeyInput>}, TContext> => {
+
+const mutationKey = ['saveAdminTmdbApiKey'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveAdminTmdbApiKey>>, {data: BodyType<TmdbApiKeyInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  saveAdminTmdbApiKey(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveAdminTmdbApiKeyMutationResult = NonNullable<Awaited<ReturnType<typeof saveAdminTmdbApiKey>>>
+    export type SaveAdminTmdbApiKeyMutationBody = BodyType<TmdbApiKeyInput>
+    export type SaveAdminTmdbApiKeyMutationError = ErrorType<void>
+
+    /**
+ * @summary Save or replace the TMDB API key
+ */
+export const useSaveAdminTmdbApiKey = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveAdminTmdbApiKey>>, TError,{data: BodyType<TmdbApiKeyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveAdminTmdbApiKey>>,
+        TError,
+        {data: BodyType<TmdbApiKeyInput>},
+        TContext
+      > => {
+      return useMutation(getSaveAdminTmdbApiKeyMutationOptions(options));
+    }
+
+export const getDeleteAdminTmdbApiKeyUrl = () => {
+
+
+
+
+  return `/api/admin/tmdb-key`
+}
+
+/**
+ * @summary Delete the TMDB API key
+ */
+export const deleteAdminTmdbApiKey = async ( options?: Parameters<typeof customFetch>[1]): Promise<SuccessResponse> => {
+
+  return customFetch<SuccessResponse>(getDeleteAdminTmdbApiKeyUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteAdminTmdbApiKeyMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAdminTmdbApiKey>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAdminTmdbApiKey>>, TError,void, TContext> => {
+
+const mutationKey = ['deleteAdminTmdbApiKey'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAdminTmdbApiKey>>, void> = () => {
+
+
+          return  deleteAdminTmdbApiKey(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAdminTmdbApiKeyMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAdminTmdbApiKey>>>
+
+    export type DeleteAdminTmdbApiKeyMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete the TMDB API key
+ */
+export const useDeleteAdminTmdbApiKey = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAdminTmdbApiKey>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteAdminTmdbApiKey>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDeleteAdminTmdbApiKeyMutationOptions(options));
     }
 
 export const getGetAdminSitemapUrl = () => {

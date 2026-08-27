@@ -318,6 +318,40 @@ export const UpdateAdminSettingsResponse = zod.object({
 
 
 /**
+ * @summary Get TMDB API key status
+ */
+export const GetAdminTmdbApiKeyResponse = zod.object({
+  "configured": zod.boolean(),
+  "maskedKey": zod.string().nullable()
+})
+
+
+/**
+ * @summary Save or replace the TMDB API key
+ */
+export const saveAdminTmdbApiKeyBodyApiKeyMax = 256;
+
+
+
+export const SaveAdminTmdbApiKeyBody = zod.object({
+  "apiKey": zod.string().min(1).max(saveAdminTmdbApiKeyBodyApiKeyMax)
+})
+
+export const SaveAdminTmdbApiKeyResponse = zod.object({
+  "configured": zod.boolean(),
+  "maskedKey": zod.string().nullable()
+})
+
+
+/**
+ * @summary Delete the TMDB API key
+ */
+export const DeleteAdminTmdbApiKeyResponse = zod.object({
+  "success": zod.boolean()
+})
+
+
+/**
  * @summary Get sitemap health information
  */
 export const GetAdminSitemapResponse = zod.object({
