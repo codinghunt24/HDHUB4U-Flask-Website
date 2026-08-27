@@ -35,12 +35,12 @@ export function PostGrid({ posts, isLoading, title, emptyMessage = "No posts fou
 
   if (!posts || posts.length === 0) {
     return (
-      <div className="text-center py-24 bg-white rounded-2xl border border-dashed shadow-sm">
-        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <PlayCircle className="w-8 h-8 text-gray-400" />
+      <div className="text-center py-24 bg-black rounded-2xl border border-dashed border-zinc-800 shadow-sm">
+        <div className="w-16 h-16 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-4">
+          <PlayCircle className="w-8 h-8 text-zinc-500" />
         </div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-1">Nothing here yet</h3>
-        <p className="text-gray-500">{emptyMessage}</p>
+        <h3 className="text-lg font-semibold text-white mb-1">Nothing here yet</h3>
+        <p className="text-zinc-400">{emptyMessage}</p>
       </div>
     );
   }
@@ -52,7 +52,7 @@ export function PostGrid({ posts, isLoading, title, emptyMessage = "No posts fou
         {posts.map((post) => (
           <Link key={post.id} href={`/post/${post.slug}`} className="group block h-full">
             <Card className="h-full overflow-hidden border-0 shadow-sm bg-black transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5 flex flex-col group">
-              <div className="relative aspect-[2/3] overflow-hidden bg-gray-100">
+              <div className="relative aspect-[2/3] overflow-hidden bg-zinc-900">
                 {post.thumbnailUrl ? (
                   <>
                     <div className="absolute inset-0 flex items-center justify-center text-gray-300">

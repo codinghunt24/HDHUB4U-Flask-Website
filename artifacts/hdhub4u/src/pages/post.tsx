@@ -225,9 +225,9 @@ export default function PostPage() {
               <h2 className="text-xs uppercase tracking-widest text-zinc-500 mb-4 font-semibold flex items-center">
                 <ImageIcon className="w-4 h-4 mr-2" /> Screenshots
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="space-y-4">
                 {sourceImageUrls.map((sourceImageUrl, i) => (
-                  <div key={sourceImageUrl} className="aspect-video bg-zinc-900 rounded-lg overflow-hidden border border-zinc-700/80 hover:border-zinc-500 transition-colors">
+                  <div key={sourceImageUrl} className="w-full aspect-video bg-zinc-900 rounded-lg overflow-hidden border border-zinc-700/80 hover:border-zinc-500 transition-colors">
                     <ImageFallback src={sourceImageUrl} alt={`Screenshot ${i + 1}`} className="w-full h-full object-cover" />
                   </div>
                 ))}

@@ -103,7 +103,7 @@ export function PublicLayout({
   };
 
   return (
-    <div className={`min-h-screen flex flex-col ${fullBleed ? "bg-black" : "bg-gray-50"}`}>
+    <div className="min-h-screen flex flex-col bg-black">
       {/* Header */}
       <header className="bg-[#141414] border-b border-white/10 sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto px-4 py-3">
@@ -155,7 +155,7 @@ export function PublicLayout({
       </header>
 
       {/* Main Content */}
-      <main className={`flex-1 w-full ${fullBleed ? "bg-black" : "bg-background"}`}>
+      <main className="flex-1 w-full bg-black">
         {fullBleed ? (
           children
         ) : (
