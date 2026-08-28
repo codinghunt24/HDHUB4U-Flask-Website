@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { PublicLayout } from "@/components/layout/public-layout";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, PlayCircle, ExternalLink, Star, Clock, Film, Quote, Globe, Users, Clapperboard, Image as ImageIcon } from "lucide-react";
+import { Calendar, PlayCircle, ExternalLink, Download, Star, Clock, Film, Quote, Globe, Users, Clapperboard, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const setMetaTag = (
@@ -219,16 +219,12 @@ export default function PostPage() {
                   fallback={<Film className="w-16 h-16 opacity-20 text-zinc-500" />}
                 />
               </div>
-              {post.sourceUrl && (
-                <a
-                  href={post.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+              <button
+                  type="button"
                   className="mt-4 w-full min-h-14 inline-flex items-center justify-center gap-2 rounded-xl bg-white px-8 py-4 text-lg font-bold tracking-wide text-black shadow-lg shadow-white/10 transition-colors hover:bg-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-                >
-                  GET <ExternalLink className="h-5 w-5" />
-                </a>
-              )}
+              >
+                GET <Download className="h-5 w-5" />
+              </button>
             </div>
           </div>
 
