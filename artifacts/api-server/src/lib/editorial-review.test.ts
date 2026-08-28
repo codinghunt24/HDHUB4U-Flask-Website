@@ -67,3 +67,14 @@ test("omits unsupported review sections for sparse series metadata", () => {
   assert.equal(review.production, null);
   assert.equal(review.credits, null);
 });
+
+test("omits non-Latin original titles from the English visitor copy", () => {
+  const review = buildEditorialReview({
+    ...baseFacts,
+    originalTitle: "धुरंधर: द रिवेंज",
+  });
+
+  assert.doesNotMatch(review.production ?? "", /धुरंधर/);
+  assert.match(review.production ?? "", /Original language: English/);
+  assert.match(review.production ?? "", /Reported budget: \$500,000/);
+});

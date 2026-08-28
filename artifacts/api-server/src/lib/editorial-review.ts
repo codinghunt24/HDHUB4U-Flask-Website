@@ -48,6 +48,11 @@ const formatMoney = (value: number | null) =>
 
 const cleanText = (value: string | null | undefined) => value?.trim() || null;
 
+const cleanEnglishText = (value: string | null | undefined) => {
+  const text = cleanText(value);
+  return text && /^[\u0000-\u024f\s]+$/u.test(text) ? text : null;
+};
+
 export const buildEditorialReview = (
   facts: EditorialReviewFacts,
 ): EditorialReview => {
@@ -57,7 +62,7 @@ export const buildEditorialReview = (
   const genreSentence = genres.length
     ? ` It is catalogued under ${genres.join(", ")}.`
     : "";
-  const tagline = cleanText(facts.tagline);
+  const tagline = cleanEnglishText(facts.tagline);
   const taglineSentence = tagline
     ? ` Its listed tagline is “${tagline}”${/[.!?]$/.test(tagline) ? "" : "."}`
     : "";
@@ -78,9 +83,9 @@ export const buildEditorialReview = (
       : null,
     facts.runtime ? `Runtime: ${facts.runtime} minutes` : null,
     facts.language ? `Original language: ${facts.language}` : null,
-    facts.originalTitle &&
-    facts.originalTitle.trim().toLowerCase() !== facts.title.trim().toLowerCase()
-      ? `Original title: ${facts.originalTitle.trim()}`
+    cleanEnglishText(facts.originalTitle) &&
+    cleanEnglishText(facts.originalTitle)!.toLowerCase() !== facts.title.trim().toLowerCase()
+      ? `Original title: ${cleanEnglishText(facts.originalTitle)}`
       : null,
     facts.budget && facts.budget > 0
       ? `Reported budget: ${formatMoney(facts.budget)}`
@@ -110,7 +115,7 @@ export const buildEditorialReview = (
 
   return {
     intro,
-    overview: cleanText(facts.overview),
+    overview: cleanEnglishText(facts.overview),
     audience,
     production,
     credits,
