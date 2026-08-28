@@ -20,6 +20,7 @@ export * from './adminSummary';
 export * from './adminTmdbApiKeyStatus';
 export * from './bulkPostDeletionResult';
 export * from './category';
+export * from './editorialReview';
 export * from './healthStatus';
 export * from './importInput';
 export * from './importResult';

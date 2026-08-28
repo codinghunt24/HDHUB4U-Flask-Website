@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { EditorialReview } from './editorialReview';
 import type { TmdbCastMember } from './tmdbCastMember';
 import type { TmdbMetadataMediaType } from './tmdbMetadataMediaType';
 import type { TmdbRelatedTitle } from './tmdbRelatedTitle';
@@ -15,6 +16,8 @@ export interface TmdbMetadata {
   title: string;
   /** @nullable */
   originalTitle: string | null;
+  /** @nullable */
+  overview: string | null;
   /** @nullable */
   releaseDate: string | null;
   /** @nullable */
@@ -39,6 +42,7 @@ export interface TmdbMetadata {
   /** @nullable */
   tagline: string | null;
   editorialSummary: string;
+  review: EditorialReview;
   /** @nullable */
   director: string | null;
   cast: TmdbCastMember[];

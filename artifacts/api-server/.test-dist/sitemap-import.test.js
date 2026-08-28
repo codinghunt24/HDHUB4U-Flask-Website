@@ -3922,6 +3922,7 @@ var ListPostsResponse = objectType({
       "mediaType": enumType(["movie", "tv"]),
       "title": stringType(),
       "originalTitle": stringType().nullable(),
+      "overview": stringType().nullable(),
       "releaseDate": stringType().nullable(),
       "year": numberType().nullable(),
       "runtime": numberType().nullable(),
@@ -3935,6 +3936,13 @@ var ListPostsResponse = objectType({
       "backdropUrl": stringType().nullable(),
       "tagline": stringType().nullable(),
       "editorialSummary": stringType(),
+      "review": objectType({
+        "intro": stringType(),
+        "overview": stringType().nullable(),
+        "audience": stringType().nullable(),
+        "production": stringType().nullable(),
+        "credits": stringType().nullable()
+      }),
       "director": stringType().nullable(),
       "cast": arrayType(objectType({
         "name": stringType(),
@@ -3984,6 +3992,7 @@ var GetPostResponse = objectType({
     "mediaType": enumType(["movie", "tv"]),
     "title": stringType(),
     "originalTitle": stringType().nullable(),
+    "overview": stringType().nullable(),
     "releaseDate": stringType().nullable(),
     "year": numberType().nullable(),
     "runtime": numberType().nullable(),
@@ -3997,6 +4006,13 @@ var GetPostResponse = objectType({
     "backdropUrl": stringType().nullable(),
     "tagline": stringType().nullable(),
     "editorialSummary": stringType(),
+    "review": objectType({
+      "intro": stringType(),
+      "overview": stringType().nullable(),
+      "audience": stringType().nullable(),
+      "production": stringType().nullable(),
+      "credits": stringType().nullable()
+    }),
     "director": stringType().nullable(),
     "cast": arrayType(objectType({
       "name": stringType(),
@@ -4081,6 +4097,7 @@ var ListAdminPostsResponseItem = objectType({
     "mediaType": enumType(["movie", "tv"]),
     "title": stringType(),
     "originalTitle": stringType().nullable(),
+    "overview": stringType().nullable(),
     "releaseDate": stringType().nullable(),
     "year": numberType().nullable(),
     "runtime": numberType().nullable(),
@@ -4094,6 +4111,13 @@ var ListAdminPostsResponseItem = objectType({
     "backdropUrl": stringType().nullable(),
     "tagline": stringType().nullable(),
     "editorialSummary": stringType(),
+    "review": objectType({
+      "intro": stringType(),
+      "overview": stringType().nullable(),
+      "audience": stringType().nullable(),
+      "production": stringType().nullable(),
+      "credits": stringType().nullable()
+    }),
     "director": stringType().nullable(),
     "cast": arrayType(objectType({
       "name": stringType(),
@@ -4163,6 +4187,7 @@ var UpdateAdminPostResponse = objectType({
     "mediaType": enumType(["movie", "tv"]),
     "title": stringType(),
     "originalTitle": stringType().nullable(),
+    "overview": stringType().nullable(),
     "releaseDate": stringType().nullable(),
     "year": numberType().nullable(),
     "runtime": numberType().nullable(),
@@ -4176,6 +4201,13 @@ var UpdateAdminPostResponse = objectType({
     "backdropUrl": stringType().nullable(),
     "tagline": stringType().nullable(),
     "editorialSummary": stringType(),
+    "review": objectType({
+      "intro": stringType(),
+      "overview": stringType().nullable(),
+      "audience": stringType().nullable(),
+      "production": stringType().nullable(),
+      "credits": stringType().nullable()
+    }),
     "director": stringType().nullable(),
     "cast": arrayType(objectType({
       "name": stringType(),
@@ -4274,6 +4306,7 @@ var ImportPostsResponse = objectType({
       "mediaType": enumType(["movie", "tv"]),
       "title": stringType(),
       "originalTitle": stringType().nullable(),
+      "overview": stringType().nullable(),
       "releaseDate": stringType().nullable(),
       "year": numberType().nullable(),
       "runtime": numberType().nullable(),
@@ -4287,6 +4320,13 @@ var ImportPostsResponse = objectType({
       "backdropUrl": stringType().nullable(),
       "tagline": stringType().nullable(),
       "editorialSummary": stringType(),
+      "review": objectType({
+        "intro": stringType(),
+        "overview": stringType().nullable(),
+        "audience": stringType().nullable(),
+        "production": stringType().nullable(),
+        "credits": stringType().nullable()
+      }),
       "director": stringType().nullable(),
       "cast": arrayType(objectType({
         "name": stringType(),

@@ -24,6 +24,18 @@ export const TmdbMetadataMediaType = {
   tv: 'tv',
 } as const;
 
+export interface EditorialReview {
+  intro: string;
+  /** @nullable */
+  overview: string | null;
+  /** @nullable */
+  audience: string | null;
+  /** @nullable */
+  production: string | null;
+  /** @nullable */
+  credits: string | null;
+}
+
 export interface TmdbCastMember {
   name: string;
   /** @nullable */
@@ -57,6 +69,8 @@ export interface TmdbMetadata {
   /** @nullable */
   originalTitle: string | null;
   /** @nullable */
+  overview: string | null;
+  /** @nullable */
   releaseDate: string | null;
   /** @nullable */
   year: number | null;
@@ -80,6 +94,7 @@ export interface TmdbMetadata {
   /** @nullable */
   tagline: string | null;
   editorialSummary: string;
+  review: EditorialReview;
   /** @nullable */
   director: string | null;
   cast: TmdbCastMember[];

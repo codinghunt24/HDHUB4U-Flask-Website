@@ -102,9 +102,11 @@ import {
   type ResolvedTitle,
 } from "../lib/tmdb-title-resolver";
 import {
+  buildEditorialSummary,
   fetchTmdbCatalogMetadata,
   type TmdbCatalogMetadata,
 } from "../lib/tmdb-metadata";
+import { buildEditorialReview } from "../lib/editorial-review";
 import {
   getPublicMediaUrl,
   isMediaAssetId,
@@ -752,12 +754,16 @@ const categoryShape = (
   postCount = 0,
 ) => ({ ...row, postCount });
 
-const normalizeTmdbMetadata = (metadata: Record<string, unknown>) => ({
-  ...metadata,
-  language: typeof metadata.language === "string" ? metadata.language : null,
-  posterUrl: getPublicMediaUrl(metadata.posterUrl),
-  backdropUrl: getPublicMediaUrl(metadata.backdropUrl),
-  cast: Array.isArray(metadata.cast)
+const normalizeTmdbMetadata = (metadata: Record<string, unknown>) => {
+  const normalized = {
+    ...metadata,
+    overview: typeof metadata.overview === "string" ? metadata.overview : null,
+    language: typeof metadata.language === "string" ? metadata.language : null,
+    genres: Array.isArray(metadata.genres) ? metadata.genres : [],
+    keywords: Array.isArray(metadata.keywords) ? metadata.keywords : [],
+    posterUrl: getPublicMediaUrl(metadata.posterUrl),
+    backdropUrl: getPublicMediaUrl(metadata.backdropUrl),
+    cast: Array.isArray(metadata.cast)
     ? metadata.cast.map((member) =>
         member && typeof member === "object"
           ? {
@@ -768,8 +774,8 @@ const normalizeTmdbMetadata = (metadata: Record<string, unknown>) => ({
             }
           : member,
       )
-    : [],
-  related: Array.isArray(metadata.related)
+      : [],
+    related: Array.isArray(metadata.related)
     ? metadata.related.map((item) =>
         item && typeof item === "object"
           ? {
@@ -780,8 +786,15 @@ const normalizeTmdbMetadata = (metadata: Record<string, unknown>) => ({
             }
           : item,
       )
-    : [],
-});
+      : [],
+  };
+  const reviewFacts = normalized as unknown as TmdbCatalogMetadata;
+  return {
+    ...normalized,
+    editorialSummary: buildEditorialSummary(reviewFacts),
+    review: buildEditorialReview(reviewFacts),
+  };
+};
 
 const postShape = (row: {
   id: number;

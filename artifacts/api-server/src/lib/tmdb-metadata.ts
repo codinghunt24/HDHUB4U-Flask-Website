@@ -1,4 +1,8 @@
 import { requestTmdbJson } from "./tmdb-title-resolver";
+import {
+  buildEditorialReview,
+  type EditorialReview,
+} from "./editorial-review";
 
 export type TmdbMediaType = "movie" | "tv";
 
@@ -7,6 +11,7 @@ export type TmdbCatalogMetadata = {
   mediaType: TmdbMediaType;
   title: string;
   originalTitle: string | null;
+  overview: string | null;
   releaseDate: string | null;
   year: number | null;
   runtime: number | null;
@@ -20,6 +25,7 @@ export type TmdbCatalogMetadata = {
   backdropUrl: string | null;
   tagline: string | null;
   editorialSummary: string;
+  review: EditorialReview;
   director: string | null;
   cast: Array<{ name: string; character: string | null; profileUrl: string | null }>;
   trailerUrl: string | null;
@@ -43,6 +49,7 @@ type TmdbDetailResponse = {
   name?: string;
   original_title?: string;
   original_name?: string;
+  overview?: string;
   release_date?: string;
   first_air_date?: string;
   runtime?: number | null;
@@ -138,32 +145,27 @@ const getLanguageName = (languageCode: string | undefined) => {
 export const buildEditorialSummary = (
   metadata: Pick<
     TmdbCatalogMetadata,
-    "title" | "mediaType" | "year" | "genres" | "runtime" | "director" | "cast" | "rating" | "revenue"
+    | "title"
+    | "mediaType"
+    | "originalTitle"
+    | "overview"
+    | "year"
+    | "releaseDate"
+    | "runtime"
+    | "language"
+    | "genres"
+    | "rating"
+    | "voteCount"
+    | "revenue"
+    | "budget"
+    | "tagline"
+    | "director"
+    | "cast"
+    | "keywords"
   >,
 ) => {
-  const kind = metadata.mediaType === "tv" ? "series" : "film";
-  const year = metadata.year ? ` released in ${metadata.year}` : "";
-  const genre = metadata.genres.length
-    ? ` Its TMDB catalog entry is listed under ${metadata.genres.slice(0, 2).join(" and ")}.`
-    : "";
-  const runtime = metadata.runtime
-    ? ` The listed runtime is ${metadata.runtime} minutes.`
-    : "";
-  const credits = metadata.director
-    ? ` Direction is credited to ${metadata.director}.`
-    : metadata.cast[0]
-      ? ` The featured cast includes ${metadata.cast.slice(0, 3).map((member) => member.name).join(", ")}.`
-      : "";
-  const rating =
-    metadata.rating && metadata.rating > 0
-      ? ` TMDB currently records a ${metadata.rating.toFixed(1)}/10 audience rating.`
-      : "";
-  const revenue =
-    metadata.mediaType === "movie" && metadata.revenue && metadata.revenue > 0
-      ? ` Reported box-office revenue is $${metadata.revenue.toLocaleString("en-US")}.`
-      : "";
-
-  return `${metadata.title} is a ${kind}${year}.${genre}${runtime}${credits}${rating}${revenue}`;
+  const review = buildEditorialReview(metadata);
+  return [review.intro, review.overview].filter(Boolean).join(" ");
 };
 
 const toRelatedTitles = (
@@ -239,6 +241,7 @@ export const fetchTmdbCatalogMetadata = async (
     originalTitle:
       (mediaType === "movie" ? response.original_title : response.original_name) ??
       null,
+    overview: response.overview?.trim() || null,
     releaseDate: releaseDate ?? null,
     year: getYear(releaseDate),
     runtime,
@@ -258,9 +261,21 @@ export const fetchTmdbCatalogMetadata = async (
     cast,
   };
 
+  const review = buildEditorialReview({
+    ...base,
+    keywords: uniqueText(
+      [
+        ...(response.keywords?.keywords ?? []),
+        ...(response.keywords?.results ?? []),
+      ].map((keyword) => keyword.name),
+      10,
+    ),
+  });
+
   return {
     ...base,
-    editorialSummary: buildEditorialSummary(base),
+    editorialSummary: [review.intro, review.overview].filter(Boolean).join(" "),
+    review,
     trailerUrl: trailer?.key
       ? `https://www.youtube.com/watch?v=${trailer.key}`
       : null,

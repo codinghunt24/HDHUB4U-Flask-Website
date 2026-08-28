@@ -587,6 +587,15 @@ components:
         title: { type: string }
         year: { type: ["number", "null"] }
         posterUrl: { type: ["string", "null"] }
+    EditorialReview:
+      type: object
+      required: [intro, overview, audience, production, credits]
+      properties:
+        intro: { type: string }
+        overview: { type: ["string", "null"] }
+        audience: { type: ["string", "null"] }
+        production: { type: ["string", "null"] }
+        credits: { type: ["string", "null"] }
     TmdbMetadata:
       type: object
       required:
@@ -595,6 +604,7 @@ components:
           mediaType,
           title,
           originalTitle,
+          overview,
           releaseDate,
           year,
           runtime,
@@ -608,6 +618,7 @@ components:
           backdropUrl,
           tagline,
           editorialSummary,
+          review,
           director,
           cast,
           trailerUrl,
@@ -623,6 +634,7 @@ components:
         mediaType: { type: string, enum: [movie, tv] }
         title: { type: string }
         originalTitle: { type: ["string", "null"] }
+        overview: { type: ["string", "null"] }
         releaseDate: { type: ["string", "null"] }
         year: { type: ["number", "null"] }
         runtime: { type: ["number", "null"] }
@@ -638,6 +650,8 @@ components:
         backdropUrl: { type: ["string", "null"] }
         tagline: { type: ["string", "null"] }
         editorialSummary: { type: string }
+        review:
+          $ref: "#/components/schemas/EditorialReview"
         director: { type: ["string", "null"] }
         cast:
           type: array

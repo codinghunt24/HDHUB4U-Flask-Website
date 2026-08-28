@@ -55,6 +55,7 @@ export const ListPostsResponse = zod.object({
   "mediaType": zod.enum(['movie', 'tv']),
   "title": zod.string(),
   "originalTitle": zod.string().nullable(),
+  "overview": zod.string().nullable(),
   "releaseDate": zod.string().nullable(),
   "year": zod.number().nullable(),
   "runtime": zod.number().nullable(),
@@ -68,6 +69,13 @@ export const ListPostsResponse = zod.object({
   "backdropUrl": zod.string().nullable(),
   "tagline": zod.string().nullable(),
   "editorialSummary": zod.string(),
+  "review": zod.object({
+  "intro": zod.string(),
+  "overview": zod.string().nullable(),
+  "audience": zod.string().nullable(),
+  "production": zod.string().nullable(),
+  "credits": zod.string().nullable()
+}),
   "director": zod.string().nullable(),
   "cast": zod.array(zod.object({
   "name": zod.string(),
@@ -123,6 +131,7 @@ export const GetPostResponse = zod.object({
   "mediaType": zod.enum(['movie', 'tv']),
   "title": zod.string(),
   "originalTitle": zod.string().nullable(),
+  "overview": zod.string().nullable(),
   "releaseDate": zod.string().nullable(),
   "year": zod.number().nullable(),
   "runtime": zod.number().nullable(),
@@ -136,6 +145,13 @@ export const GetPostResponse = zod.object({
   "backdropUrl": zod.string().nullable(),
   "tagline": zod.string().nullable(),
   "editorialSummary": zod.string(),
+  "review": zod.object({
+  "intro": zod.string(),
+  "overview": zod.string().nullable(),
+  "audience": zod.string().nullable(),
+  "production": zod.string().nullable(),
+  "credits": zod.string().nullable()
+}),
   "director": zod.string().nullable(),
   "cast": zod.array(zod.object({
   "name": zod.string(),
@@ -270,6 +286,7 @@ export const ListAdminPostsResponseItem = zod.object({
   "mediaType": zod.enum(['movie', 'tv']),
   "title": zod.string(),
   "originalTitle": zod.string().nullable(),
+  "overview": zod.string().nullable(),
   "releaseDate": zod.string().nullable(),
   "year": zod.number().nullable(),
   "runtime": zod.number().nullable(),
@@ -283,6 +300,13 @@ export const ListAdminPostsResponseItem = zod.object({
   "backdropUrl": zod.string().nullable(),
   "tagline": zod.string().nullable(),
   "editorialSummary": zod.string(),
+  "review": zod.object({
+  "intro": zod.string(),
+  "overview": zod.string().nullable(),
+  "audience": zod.string().nullable(),
+  "production": zod.string().nullable(),
+  "credits": zod.string().nullable()
+}),
   "director": zod.string().nullable(),
   "cast": zod.array(zod.object({
   "name": zod.string(),
@@ -370,6 +394,7 @@ export const UpdateAdminPostResponse = zod.object({
   "mediaType": zod.enum(['movie', 'tv']),
   "title": zod.string(),
   "originalTitle": zod.string().nullable(),
+  "overview": zod.string().nullable(),
   "releaseDate": zod.string().nullable(),
   "year": zod.number().nullable(),
   "runtime": zod.number().nullable(),
@@ -383,6 +408,13 @@ export const UpdateAdminPostResponse = zod.object({
   "backdropUrl": zod.string().nullable(),
   "tagline": zod.string().nullable(),
   "editorialSummary": zod.string(),
+  "review": zod.object({
+  "intro": zod.string(),
+  "overview": zod.string().nullable(),
+  "audience": zod.string().nullable(),
+  "production": zod.string().nullable(),
+  "credits": zod.string().nullable()
+}),
   "director": zod.string().nullable(),
   "cast": zod.array(zod.object({
   "name": zod.string(),
@@ -516,6 +548,7 @@ export const ImportPostsResponse = zod.object({
   "mediaType": zod.enum(['movie', 'tv']),
   "title": zod.string(),
   "originalTitle": zod.string().nullable(),
+  "overview": zod.string().nullable(),
   "releaseDate": zod.string().nullable(),
   "year": zod.number().nullable(),
   "runtime": zod.number().nullable(),
@@ -529,6 +562,13 @@ export const ImportPostsResponse = zod.object({
   "backdropUrl": zod.string().nullable(),
   "tagline": zod.string().nullable(),
   "editorialSummary": zod.string(),
+  "review": zod.object({
+  "intro": zod.string(),
+  "overview": zod.string().nullable(),
+  "audience": zod.string().nullable(),
+  "production": zod.string().nullable(),
+  "credits": zod.string().nullable()
+}),
   "director": zod.string().nullable(),
   "cast": zod.array(zod.object({
   "name": zod.string(),

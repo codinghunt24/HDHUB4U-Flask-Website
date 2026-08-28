@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { PublicLayout } from "@/components/layout/public-layout";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, PlayCircle, ExternalLink, Download, Star, Clock, Film, Quote, Globe, Users, Clapperboard, Image as ImageIcon } from "lucide-react";
+import { Calendar, PlayCircle, ExternalLink, Download, Star, Clock, Film, Quote, Globe, Users, Clapperboard, Image as ImageIcon, BookOpen, TrendingUp, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const setMetaTag = (
@@ -21,6 +21,14 @@ const setMetaTag = (
     document.head.appendChild(element);
   }
   element.content = content;
+};
+
+const buildMetaDescription = (
+  intro: string,
+  overview: string | null | undefined,
+) => {
+  const value = [intro, overview].filter(Boolean).join(" ").replace(/\s+/g, " ");
+  return value.length > 158 ? `${value.slice(0, 155).trimEnd()}…` : value;
 };
 
 const ImageFallback = ({ src, alt, fallback, className, fit = "cover", width, height }: { src: string | null | undefined, alt: string, fallback?: React.ReactNode, className?: string, fit?: "cover" | "contain", width?: number, height?: number }) => {
@@ -45,9 +53,11 @@ export default function PostPage() {
     if (!post) return;
     const metadata = post.tmdb;
     const pageTitle = metadata
-      ? `${post.title}${metadata.year ? ` (${metadata.year})` : ""} — Cast, Rating & Details | HDHUB4U`
+      ? `${post.title}${metadata.year ? ` (${metadata.year})` : ""} — ${metadata.mediaType === "tv" ? "Series Guide" : "Movie Review"} | HDHUB4U`
       : `${post.title} | HDHUB4U`;
-    const description = metadata?.editorialSummary ?? post.excerpt;
+    const description = metadata?.review
+      ? buildMetaDescription(metadata.review.intro, metadata.review.overview)
+      : metadata?.editorialSummary ?? post.excerpt;
     const canonicalUrl = `${window.location.origin}${window.location.pathname}`;
     const imageUrl = metadata?.backdropUrl ?? metadata?.posterUrl ?? post.thumbnailUrl;
     const socialImageUrl = imageUrl
@@ -80,7 +90,7 @@ export default function PostPage() {
     const structuredData = {
       "@context": "https://schema.org",
       "@type": metadata?.mediaType === "tv" ? "TVSeries" : "Movie",
-      name: post.title,
+      name: metadata?.title ?? post.title,
       description,
       url: canonicalUrl,
        image: socialImageUrl || undefined,
@@ -228,6 +238,54 @@ export default function PostPage() {
             </div>
           </div>
 
+          {t && (
+            <div className="mb-12 space-y-5">
+              <section className="rounded-2xl border border-zinc-800 bg-zinc-950 px-5 py-6 sm:px-8 sm:py-8">
+                <div className="mb-5 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
+                  <BookOpen className="h-4 w-4" />
+                  {t.mediaType === "tv" ? "Series guide" : "Movie review"}
+                </div>
+                <p className="text-xl leading-relaxed text-zinc-100 sm:text-2xl">
+                  {t.review.intro}
+                </p>
+                {t.review.overview && (
+                  <div className="mt-7 border-t border-zinc-800 pt-7">
+                    <h2 className="mb-3 text-sm font-semibold uppercase tracking-widest text-zinc-400">
+                      Story overview
+                    </h2>
+                    <p className="text-base leading-8 text-zinc-300 sm:text-lg">
+                      {t.review.overview}
+                    </p>
+                  </div>
+                )}
+                {t.tagline && (
+                  <blockquote className="mt-7 border-l-2 border-white pl-5 text-lg italic text-zinc-400">
+                    “{t.tagline}”
+                  </blockquote>
+                )}
+              </section>
+
+              <div className="grid gap-5 md:grid-cols-2">
+                {t.review.audience && (
+                  <section className="rounded-xl border border-zinc-800 bg-zinc-950/80 p-5">
+                    <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">
+                      <TrendingUp className="h-4 w-4" /> Audience snapshot
+                    </h2>
+                    <p className="leading-7 text-zinc-300">{t.review.audience}</p>
+                  </section>
+                )}
+                {t.review.production && (
+                  <section className="rounded-xl border border-zinc-800 bg-zinc-950/80 p-5">
+                    <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">
+                      <Clapperboard className="h-4 w-4" /> Production context
+                    </h2>
+                    <p className="leading-7 text-zinc-300">{t.review.production}</p>
+                  </section>
+                )}
+              </div>
+            </div>
+          )}
+
           {sourceImageUrls && sourceImageUrls.length > 0 && (
             <section className="mb-8">
               <h2 className="text-xs uppercase tracking-widest text-zinc-500 mb-4 font-semibold flex items-center">
@@ -339,15 +397,32 @@ export default function PostPage() {
             </div>
           )}
 
-          {/* Editorial Summary */}
-          <div className="mb-16">
-            <h3 className="text-xs uppercase tracking-widest text-zinc-500 mb-6 font-semibold flex items-center">
-              <Quote className="w-4 h-4 mr-2" /> Editorial Summary
-            </h3>
-            <p className="text-lg md:text-xl leading-relaxed text-zinc-300 font-serif">
-              {t?.editorialSummary || post.excerpt}
-            </p>
-          </div>
+          {t?.review.credits && (
+            <section className="mb-12 rounded-xl border border-zinc-800 bg-zinc-950/80 p-5 sm:p-6">
+              <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">
+                <Quote className="h-4 w-4" /> Credits context
+              </h2>
+              <p className="leading-7 text-zinc-300">{t.review.credits}</p>
+            </section>
+          )}
+
+          {t?.keywords && t.keywords.length > 0 && (
+            <section className="mb-16">
+              <h2 className="mb-5 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">
+                <Sparkles className="h-4 w-4" /> Themes & discovery
+              </h2>
+              <p className="mb-4 max-w-3xl leading-7 text-zinc-400">
+                Explore this {t.mediaType === "tv" ? "series" : "movie"} through its TMDB catalog themes.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {t.keywords.slice(0, 10).map((keyword) => (
+                  <Badge key={keyword} variant="outline" className="border-zinc-800 px-3 py-1 text-zinc-400">
+                    {keyword}
+                  </Badge>
+                ))}
+              </div>
+            </section>
+          )}
 
           {!t && (
             <div className="mb-16 p-8 bg-zinc-900/50 rounded-xl border border-zinc-800/50">
@@ -378,11 +453,9 @@ export default function PostPage() {
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
                 {t.related.map(item => (
-                  <a
+                  <Link
                     key={`${item.mediaType}-${item.id}`}
-                    href={`https://www.themoviedb.org/${item.mediaType}/${item.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={`/?search=${encodeURIComponent(item.title)}`}
                     className="group"
                   >
                     <div className="aspect-[2/3] bg-zinc-900 rounded-lg overflow-hidden border border-zinc-800/50 mb-3 relative">
@@ -400,7 +473,7 @@ export default function PostPage() {
                     </div>
                     <h4 className="font-medium text-sm text-zinc-300 group-hover:text-white line-clamp-1 transition-colors">{item.title}</h4>
                     {item.year && <p className="text-xs text-zinc-500 mt-1">{item.year}</p>}
-                  </a>
+                  </Link>
                 ))}
               </div>
             </div>
