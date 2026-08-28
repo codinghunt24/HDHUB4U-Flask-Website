@@ -91,6 +91,15 @@ export const settingsTable = pgTable("site_settings", {
   analyticsId: text("analytics_id"),
   contactEmail: text("contact_email").notNull().default("contact@hdhub4u.tech"),
   tmdbApiKeyEncrypted: text("tmdb_api_key_encrypted"),
+  adsterraEnabled: boolean("adsterra_enabled").notNull().default(false),
+  adsterraTopEnabled: boolean("adsterra_top_enabled").notNull().default(true),
+  adsterraTopCode: text("adsterra_top_code"),
+  adsterraContentEnabled: boolean("adsterra_content_enabled").notNull().default(true),
+  adsterraContentCode: text("adsterra_content_code"),
+  adsterraSidebarEnabled: boolean("adsterra_sidebar_enabled").notNull().default(true),
+  adsterraSidebarCode: text("adsterra_sidebar_code"),
+  adsterraFooterEnabled: boolean("adsterra_footer_enabled").notNull().default(true),
+  adsterraFooterCode: text("adsterra_footer_code"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow()

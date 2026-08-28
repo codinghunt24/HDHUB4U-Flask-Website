@@ -268,6 +268,15 @@ export interface PublicSettings {
   siteDescription: string;
   /** @nullable */
   analyticsId: string | null;
+  adsterraEnabled: boolean;
+  /** @nullable */
+  adsterraTopCode: string | null;
+  /** @nullable */
+  adsterraContentCode: string | null;
+  /** @nullable */
+  adsterraSidebarCode: string | null;
+  /** @nullable */
+  adsterraFooterCode: string | null;
 }
 
 export interface AdminSettings {
@@ -276,6 +285,19 @@ export interface AdminSettings {
   /** @nullable */
   analyticsId: string | null;
   contactEmail: string;
+  adsterraEnabled: boolean;
+  adsterraTopEnabled: boolean;
+  /** @nullable */
+  adsterraTopCode: string | null;
+  adsterraContentEnabled: boolean;
+  /** @nullable */
+  adsterraContentCode: string | null;
+  adsterraSidebarEnabled: boolean;
+  /** @nullable */
+  adsterraSidebarCode: string | null;
+  adsterraFooterEnabled: boolean;
+  /** @nullable */
+  adsterraFooterCode: string | null;
 }
 
 export interface AdminTmdbApiKeyStatus {
@@ -299,6 +321,31 @@ export interface SettingsUpdate {
   /** @nullable */
   analyticsId?: string | null;
   contactEmail?: string;
+  adsterraEnabled?: boolean;
+  adsterraTopEnabled?: boolean;
+  /**
+     * @maxLength 30000
+     * @nullable
+     */
+  adsterraTopCode?: string | null;
+  adsterraContentEnabled?: boolean;
+  /**
+     * @maxLength 30000
+     * @nullable
+     */
+  adsterraContentCode?: string | null;
+  adsterraSidebarEnabled?: boolean;
+  /**
+     * @maxLength 30000
+     * @nullable
+     */
+  adsterraSidebarCode?: string | null;
+  adsterraFooterEnabled?: boolean;
+  /**
+     * @maxLength 30000
+     * @nullable
+     */
+  adsterraFooterCode?: string | null;
 }
 
 export interface AdminLoginInput {

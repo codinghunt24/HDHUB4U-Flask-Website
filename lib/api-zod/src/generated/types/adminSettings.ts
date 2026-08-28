@@ -12,4 +12,17 @@ export interface AdminSettings {
   /** @nullable */
   analyticsId: string | null;
   contactEmail: string;
+  adsterraEnabled: boolean;
+  adsterraTopEnabled: boolean;
+  /** @nullable */
+  adsterraTopCode: string | null;
+  adsterraContentEnabled: boolean;
+  /** @nullable */
+  adsterraContentCode: string | null;
+  adsterraSidebarEnabled: boolean;
+  /** @nullable */
+  adsterraSidebarCode: string | null;
+  adsterraFooterEnabled: boolean;
+  /** @nullable */
+  adsterraFooterCode: string | null;
 }

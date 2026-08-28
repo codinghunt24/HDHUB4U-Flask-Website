@@ -4048,7 +4048,12 @@ var ListCategoriesResponse = arrayType(ListCategoriesResponseItem);
 var GetPublicSettingsResponse = objectType({
   "siteName": stringType(),
   "siteDescription": stringType(),
-  "analyticsId": stringType().nullable()
+  "analyticsId": stringType().nullable(),
+  "adsterraEnabled": booleanType(),
+  "adsterraTopCode": stringType().nullable(),
+  "adsterraContentCode": stringType().nullable(),
+  "adsterraSidebarCode": stringType().nullable(),
+  "adsterraFooterCode": stringType().nullable()
 });
 var GetAdminSessionResponse = objectType({
   "authenticated": booleanType(),
@@ -4393,19 +4398,50 @@ var GetAdminSettingsResponse = objectType({
   "siteName": stringType(),
   "siteDescription": stringType(),
   "analyticsId": stringType().nullable(),
-  "contactEmail": stringType()
+  "contactEmail": stringType(),
+  "adsterraEnabled": booleanType(),
+  "adsterraTopEnabled": booleanType(),
+  "adsterraTopCode": stringType().nullable(),
+  "adsterraContentEnabled": booleanType(),
+  "adsterraContentCode": stringType().nullable(),
+  "adsterraSidebarEnabled": booleanType(),
+  "adsterraSidebarCode": stringType().nullable(),
+  "adsterraFooterEnabled": booleanType(),
+  "adsterraFooterCode": stringType().nullable()
 });
+var updateAdminSettingsBodyAdsterraTopCodeMax = 3e4;
+var updateAdminSettingsBodyAdsterraContentCodeMax = 3e4;
+var updateAdminSettingsBodyAdsterraSidebarCodeMax = 3e4;
+var updateAdminSettingsBodyAdsterraFooterCodeMax = 3e4;
 var UpdateAdminSettingsBody = objectType({
   "siteName": stringType().min(1).optional(),
   "siteDescription": stringType().optional(),
   "analyticsId": stringType().nullish(),
-  "contactEmail": stringType().optional()
+  "contactEmail": stringType().optional(),
+  "adsterraEnabled": booleanType().optional(),
+  "adsterraTopEnabled": booleanType().optional(),
+  "adsterraTopCode": stringType().max(updateAdminSettingsBodyAdsterraTopCodeMax).nullish(),
+  "adsterraContentEnabled": booleanType().optional(),
+  "adsterraContentCode": stringType().max(updateAdminSettingsBodyAdsterraContentCodeMax).nullish(),
+  "adsterraSidebarEnabled": booleanType().optional(),
+  "adsterraSidebarCode": stringType().max(updateAdminSettingsBodyAdsterraSidebarCodeMax).nullish(),
+  "adsterraFooterEnabled": booleanType().optional(),
+  "adsterraFooterCode": stringType().max(updateAdminSettingsBodyAdsterraFooterCodeMax).nullish()
 });
 var UpdateAdminSettingsResponse = objectType({
   "siteName": stringType(),
   "siteDescription": stringType(),
   "analyticsId": stringType().nullable(),
-  "contactEmail": stringType()
+  "contactEmail": stringType(),
+  "adsterraEnabled": booleanType(),
+  "adsterraTopEnabled": booleanType(),
+  "adsterraTopCode": stringType().nullable(),
+  "adsterraContentEnabled": booleanType(),
+  "adsterraContentCode": stringType().nullable(),
+  "adsterraSidebarEnabled": booleanType(),
+  "adsterraSidebarCode": stringType().nullable(),
+  "adsterraFooterEnabled": booleanType(),
+  "adsterraFooterCode": stringType().nullable()
 });
 var GetAdminTmdbApiKeyResponse = objectType({
   "configured": booleanType(),

@@ -720,19 +720,58 @@ components:
         totalPages: { type: number }
     PublicSettings:
       type: object
-      required: [siteName, siteDescription, analyticsId]
+      required:
+        [
+          siteName,
+          siteDescription,
+          analyticsId,
+          adsterraEnabled,
+          adsterraTopCode,
+          adsterraContentCode,
+          adsterraSidebarCode,
+          adsterraFooterCode,
+        ]
       properties:
         siteName: { type: string }
         siteDescription: { type: string }
         analyticsId: { type: ["string", "null"] }
+        adsterraEnabled: { type: boolean }
+        adsterraTopCode: { type: ["string", "null"] }
+        adsterraContentCode: { type: ["string", "null"] }
+        adsterraSidebarCode: { type: ["string", "null"] }
+        adsterraFooterCode: { type: ["string", "null"] }
     AdminSettings:
       type: object
-      required: [siteName, siteDescription, analyticsId, contactEmail]
+      required:
+        [
+          siteName,
+          siteDescription,
+          analyticsId,
+          contactEmail,
+          adsterraEnabled,
+          adsterraTopEnabled,
+          adsterraTopCode,
+          adsterraContentEnabled,
+          adsterraContentCode,
+          adsterraSidebarEnabled,
+          adsterraSidebarCode,
+          adsterraFooterEnabled,
+          adsterraFooterCode,
+        ]
       properties:
         siteName: { type: string }
         siteDescription: { type: string }
         analyticsId: { type: ["string", "null"] }
         contactEmail: { type: string }
+        adsterraEnabled: { type: boolean }
+        adsterraTopEnabled: { type: boolean }
+        adsterraTopCode: { type: ["string", "null"] }
+        adsterraContentEnabled: { type: boolean }
+        adsterraContentCode: { type: ["string", "null"] }
+        adsterraSidebarEnabled: { type: boolean }
+        adsterraSidebarCode: { type: ["string", "null"] }
+        adsterraFooterEnabled: { type: boolean }
+        adsterraFooterCode: { type: ["string", "null"] }
     AdminTmdbApiKeyStatus:
       type: object
       required: [configured, maskedKey]
@@ -751,6 +790,15 @@ components:
         siteDescription: { type: string }
         analyticsId: { type: ["string", "null"] }
         contactEmail: { type: string }
+        adsterraEnabled: { type: boolean }
+        adsterraTopEnabled: { type: boolean }
+        adsterraTopCode: { type: ["string", "null"], maxLength: 30000 }
+        adsterraContentEnabled: { type: boolean }
+        adsterraContentCode: { type: ["string", "null"], maxLength: 30000 }
+        adsterraSidebarEnabled: { type: boolean }
+        adsterraSidebarCode: { type: ["string", "null"], maxLength: 30000 }
+        adsterraFooterEnabled: { type: boolean }
+        adsterraFooterCode: { type: ["string", "null"], maxLength: 30000 }
     AdminLoginInput:
       type: object
       required: [email, password]

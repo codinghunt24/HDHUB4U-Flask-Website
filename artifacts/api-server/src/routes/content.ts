@@ -114,6 +114,10 @@ import {
   openMediaAsset,
   persistMediaAsset,
 } from "../lib/media-storage";
+import {
+  getAdminAdSettings,
+  getPublicAdSettings,
+} from "../lib/adsterra-settings";
 
 const router: IRouter = Router();
 const SESSION_COOKIE = "hdhub4u_admin";
@@ -1033,6 +1037,7 @@ router.get("/settings/public", async (_req, res): Promise<void> => {
         settings?.siteDescription ??
         "Latest entertainment updates and curated editorial posts.",
       analyticsId: settings?.analyticsId ?? null,
+      ...getPublicAdSettings(settings),
     }),
   );
 });
@@ -2014,6 +2019,7 @@ router.get("/admin/settings", async (req, res): Promise<void> => {
       siteDescription: settings?.siteDescription ?? "",
       analyticsId: settings?.analyticsId ?? null,
       contactEmail: settings?.contactEmail ?? "contact@hdhub4u.tech",
+      ...getAdminAdSettings(settings),
     }),
   );
 });

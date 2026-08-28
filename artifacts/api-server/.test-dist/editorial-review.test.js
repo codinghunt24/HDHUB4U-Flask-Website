@@ -16,12 +16,16 @@ var formatDate = (value) => {
 };
 var formatMoney = (value) => value != null && value > 0 ? `$${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value)}` : null;
 var cleanText = (value) => value?.trim() || null;
+var cleanEnglishText = (value) => {
+  const text = cleanText(value);
+  return text && /^[\u0000-\u024f\s]+$/u.test(text) ? text : null;
+};
 var buildEditorialReview = (facts) => {
   const kind = facts.mediaType === "tv" ? "series" : "film";
   const year = facts.year ? ` from ${facts.year}` : "";
   const genres = facts.genres.filter(Boolean).slice(0, 3);
   const genreSentence = genres.length ? ` It is catalogued under ${genres.join(", ")}.` : "";
-  const tagline = cleanText(facts.tagline);
+  const tagline = cleanEnglishText(facts.tagline);
   const taglineSentence = tagline ? ` Its listed tagline is \u201C${tagline}\u201D${/[.!?]$/.test(tagline) ? "" : "."}` : "";
   const intro = `${facts.title} is a ${kind}${year}.${genreSentence}${taglineSentence}`;
   const audience = facts.rating != null && facts.voteCount != null && facts.voteCount > 0 ? `TMDB records an audience rating of ${facts.rating.toFixed(1)}/10 based on ${new Intl.NumberFormat("en-US").format(facts.voteCount)} votes.` : facts.rating != null ? `TMDB records an audience rating of ${facts.rating.toFixed(1)}/10.` : null;
@@ -29,7 +33,7 @@ var buildEditorialReview = (facts) => {
     facts.releaseDate ? `Release date: ${formatDate(facts.releaseDate)}` : null,
     facts.runtime ? `Runtime: ${facts.runtime} minutes` : null,
     facts.language ? `Original language: ${facts.language}` : null,
-    facts.originalTitle && facts.originalTitle.trim().toLowerCase() !== facts.title.trim().toLowerCase() ? `Original title: ${facts.originalTitle.trim()}` : null,
+    cleanEnglishText(facts.originalTitle) && cleanEnglishText(facts.originalTitle).toLowerCase() !== facts.title.trim().toLowerCase() ? `Original title: ${cleanEnglishText(facts.originalTitle)}` : null,
     facts.budget && facts.budget > 0 ? `Reported budget: ${formatMoney(facts.budget)}` : null,
     facts.revenue && facts.revenue > 0 ? `Reported revenue: ${formatMoney(facts.revenue)}` : null
   ].filter(Boolean);
@@ -45,7 +49,7 @@ var buildEditorialReview = (facts) => {
   const credits = creditsFacts.length ? creditsFacts.join(" \xB7 ") : null;
   return {
     intro,
-    overview: cleanText(facts.overview),
+    overview: cleanEnglishText(facts.overview),
     audience,
     production,
     credits
@@ -113,4 +117,13 @@ test("omits unsupported review sections for sparse series metadata", () => {
   assert.equal(review.audience, null);
   assert.equal(review.production, null);
   assert.equal(review.credits, null);
+});
+test("omits non-Latin original titles from the English visitor copy", () => {
+  const review = buildEditorialReview({
+    ...baseFacts,
+    originalTitle: "\u0927\u0941\u0930\u0902\u0927\u0930: \u0926 \u0930\u093F\u0935\u0947\u0902\u091C"
+  });
+  assert.doesNotMatch(review.production ?? "", /धुरंधर/);
+  assert.match(review.production ?? "", /Original language: English/);
+  assert.match(review.production ?? "", /Reported budget: \$500,000/);
 });

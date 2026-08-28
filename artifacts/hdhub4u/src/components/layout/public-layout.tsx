@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { AdsterraSlot } from "@/components/adsterra-slot";
 
 type PublicCategory = {
   id: number;
@@ -156,16 +157,30 @@ export function PublicLayout({
 
       {/* Main Content */}
       <main className="flex-1 w-full bg-black">
+        <div className="mx-auto w-full max-w-7xl px-4 pt-4">
+          <AdsterraSlot code={settings?.adsterraTopCode} placement="top" />
+          <div className="mt-4">
+            <AdsterraSlot code={settings?.adsterraContentCode} placement="content" />
+          </div>
+        </div>
         {fullBleed ? (
           children
         ) : (
-          <div className="max-w-7xl mx-auto px-4 py-8">
-            {children}
+          <div className="mx-auto flex max-w-[100rem] items-start gap-8 px-4 py-8">
+            <div className="min-w-0 flex-1">{children}</div>
+            <aside className="hidden w-56 shrink-0 xl:block" aria-label="Sidebar advertisement">
+              <AdsterraSlot code={settings?.adsterraSidebarCode} placement="sidebar" />
+            </aside>
           </div>
         )}
       </main>
 
       {/* Footer */}
+      <div className="w-full bg-black px-4 pb-4">
+        <div className="mx-auto max-w-7xl">
+          <AdsterraSlot code={settings?.adsterraFooterCode} placement="footer" />
+        </div>
+      </div>
       <footer className="bg-[#141414] border-t border-white/10 py-12 mt-12">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">

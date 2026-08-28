@@ -11,4 +11,13 @@ export interface PublicSettings {
   siteDescription: string;
   /** @nullable */
   analyticsId: string | null;
+  adsterraEnabled: boolean;
+  /** @nullable */
+  adsterraTopCode: string | null;
+  /** @nullable */
+  adsterraContentCode: string | null;
+  /** @nullable */
+  adsterraSidebarCode: string | null;
+  /** @nullable */
+  adsterraFooterCode: string | null;
 }

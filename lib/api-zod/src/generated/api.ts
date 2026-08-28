@@ -203,7 +203,12 @@ export const ListCategoriesResponse = zod.array(ListCategoriesResponseItem)
 export const GetPublicSettingsResponse = zod.object({
   "siteName": zod.string(),
   "siteDescription": zod.string(),
-  "analyticsId": zod.string().nullable()
+  "analyticsId": zod.string().nullable(),
+  "adsterraEnabled": zod.boolean(),
+  "adsterraTopCode": zod.string().nullable(),
+  "adsterraContentCode": zod.string().nullable(),
+  "adsterraSidebarCode": zod.string().nullable(),
+  "adsterraFooterCode": zod.string().nullable()
 })
 
 
@@ -652,7 +657,16 @@ export const GetAdminSettingsResponse = zod.object({
   "siteName": zod.string(),
   "siteDescription": zod.string(),
   "analyticsId": zod.string().nullable(),
-  "contactEmail": zod.string()
+  "contactEmail": zod.string(),
+  "adsterraEnabled": zod.boolean(),
+  "adsterraTopEnabled": zod.boolean(),
+  "adsterraTopCode": zod.string().nullable(),
+  "adsterraContentEnabled": zod.boolean(),
+  "adsterraContentCode": zod.string().nullable(),
+  "adsterraSidebarEnabled": zod.boolean(),
+  "adsterraSidebarCode": zod.string().nullable(),
+  "adsterraFooterEnabled": zod.boolean(),
+  "adsterraFooterCode": zod.string().nullable()
 })
 
 
@@ -660,20 +674,46 @@ export const GetAdminSettingsResponse = zod.object({
  * @summary Update SEO and analytics settings
  */
 
+export const updateAdminSettingsBodyAdsterraTopCodeMax = 30000;
+
+export const updateAdminSettingsBodyAdsterraContentCodeMax = 30000;
+
+export const updateAdminSettingsBodyAdsterraSidebarCodeMax = 30000;
+
+export const updateAdminSettingsBodyAdsterraFooterCodeMax = 30000;
+
 
 
 export const UpdateAdminSettingsBody = zod.object({
   "siteName": zod.string().min(1).optional(),
   "siteDescription": zod.string().optional(),
   "analyticsId": zod.string().nullish(),
-  "contactEmail": zod.string().optional()
+  "contactEmail": zod.string().optional(),
+  "adsterraEnabled": zod.boolean().optional(),
+  "adsterraTopEnabled": zod.boolean().optional(),
+  "adsterraTopCode": zod.string().max(updateAdminSettingsBodyAdsterraTopCodeMax).nullish(),
+  "adsterraContentEnabled": zod.boolean().optional(),
+  "adsterraContentCode": zod.string().max(updateAdminSettingsBodyAdsterraContentCodeMax).nullish(),
+  "adsterraSidebarEnabled": zod.boolean().optional(),
+  "adsterraSidebarCode": zod.string().max(updateAdminSettingsBodyAdsterraSidebarCodeMax).nullish(),
+  "adsterraFooterEnabled": zod.boolean().optional(),
+  "adsterraFooterCode": zod.string().max(updateAdminSettingsBodyAdsterraFooterCodeMax).nullish()
 })
 
 export const UpdateAdminSettingsResponse = zod.object({
   "siteName": zod.string(),
   "siteDescription": zod.string(),
   "analyticsId": zod.string().nullable(),
-  "contactEmail": zod.string()
+  "contactEmail": zod.string(),
+  "adsterraEnabled": zod.boolean(),
+  "adsterraTopEnabled": zod.boolean(),
+  "adsterraTopCode": zod.string().nullable(),
+  "adsterraContentEnabled": zod.boolean(),
+  "adsterraContentCode": zod.string().nullable(),
+  "adsterraSidebarEnabled": zod.boolean(),
+  "adsterraSidebarCode": zod.string().nullable(),
+  "adsterraFooterEnabled": zod.boolean(),
+  "adsterraFooterCode": zod.string().nullable()
 })
 
 
