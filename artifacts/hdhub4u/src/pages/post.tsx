@@ -211,12 +211,24 @@ export default function PostPage() {
 
           {/* Centered poster and source screenshots */}
           <div className="flex justify-center mb-7">
-            <div className="w-full max-w-[320px] aspect-[2/3] rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800 shadow-2xl relative">
-              <ImageFallback
-                src={t?.posterUrl || post.thumbnailUrl}
-                alt={post.title}
-                fallback={<Film className="w-16 h-16 opacity-20 text-zinc-500" />}
-              />
+            <div className="w-full max-w-[320px]">
+              <div className="aspect-[2/3] rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800 shadow-2xl relative">
+                <ImageFallback
+                  src={t?.posterUrl || post.thumbnailUrl}
+                  alt={post.title}
+                  fallback={<Film className="w-16 h-16 opacity-20 text-zinc-500" />}
+                />
+              </div>
+              {post.sourceUrl && (
+                <a
+                  href={post.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 w-full min-h-14 inline-flex items-center justify-center gap-2 rounded-xl bg-white px-8 py-4 text-lg font-bold tracking-wide text-black shadow-lg shadow-white/10 transition-colors hover:bg-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                >
+                  GET <ExternalLink className="h-5 w-5" />
+                </a>
+              )}
             </div>
           </div>
 
