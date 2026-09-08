@@ -176,6 +176,78 @@ export const GetPostResponse = zod.object({
 
 
 /**
+ * @summary Get up to four posts published before the current post
+ */
+export const GetPreviousPostsParams = zod.object({
+  "slug": zod.coerce.string()
+})
+
+export const GetPreviousPostsResponseItem = zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "slug": zod.string(),
+  "thumbnailUrl": zod.string(),
+  "sourceImageUrls": zod.array(zod.string()),
+  "excerpt": zod.string(),
+  "sourceUrl": zod.string().nullish(),
+  "category": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "slug": zod.string(),
+  "postCount": zod.number()
+}),
+  "publishedAt": zod.coerce.date(),
+  "tmdb": zod.object({
+  "id": zod.number(),
+  "mediaType": zod.enum(['movie', 'tv']),
+  "title": zod.string(),
+  "originalTitle": zod.string().nullable(),
+  "overview": zod.string().nullable(),
+  "releaseDate": zod.string().nullable(),
+  "year": zod.number().nullable(),
+  "runtime": zod.number().nullable(),
+  "language": zod.string().nullable(),
+  "genres": zod.array(zod.string()),
+  "rating": zod.number().nullable(),
+  "voteCount": zod.number().nullable(),
+  "revenue": zod.number().nullable(),
+  "budget": zod.number().nullable(),
+  "posterUrl": zod.string().nullable(),
+  "backdropUrl": zod.string().nullable(),
+  "tagline": zod.string().nullable(),
+  "editorialSummary": zod.string(),
+  "review": zod.object({
+  "intro": zod.string(),
+  "overview": zod.string().nullable(),
+  "audience": zod.string().nullable(),
+  "production": zod.string().nullable(),
+  "credits": zod.string().nullable()
+}),
+  "director": zod.string().nullable(),
+  "cast": zod.array(zod.object({
+  "name": zod.string(),
+  "character": zod.string().nullable(),
+  "profileUrl": zod.string().nullable()
+})),
+  "trailerUrl": zod.string().nullable(),
+  "imdbId": zod.string().nullable(),
+  "keywords": zod.array(zod.string()),
+  "related": zod.array(zod.object({
+  "id": zod.number(),
+  "mediaType": zod.enum(['movie', 'tv']),
+  "title": zod.string(),
+  "year": zod.number().nullable(),
+  "posterUrl": zod.string().nullable()
+})),
+  "tmdbUrl": zod.string(),
+  "attribution": zod.string(),
+  "syncedAt": zod.coerce.date()
+}).optional()
+})
+export const GetPreviousPostsResponse = zod.array(GetPreviousPostsResponseItem)
+
+
+/**
  * @summary Get a compressed internally stored post image
  */
 export const GetMediaAssetParams = zod.object({

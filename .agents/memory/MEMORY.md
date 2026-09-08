@@ -3,3 +3,4 @@
 - [TMDB category synchronization](tmdb-category-synchronization.md) — primary genre categories and their backfills must share normalization and use corrective migrations.
 - [App Storage runtime compatibility](app-storage-runtime-compatibility.md) — the project’s Node 20 runtime requires the Node-20-compatible Google Cloud Storage SDK line.
 - [Editorial review content](editorial-review-content.md) — compose review sections only from verified catalog facts; omit unavailable context instead of inventing it.
+- [Previous-post ordering](previous-post-ordering.md) — “previous” means older published content, ordered by publish time and then post ID; hide unavailable positions.

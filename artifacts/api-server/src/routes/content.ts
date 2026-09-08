@@ -21,6 +21,8 @@ import {
   GetAdminSummaryResponse,
   GetPostParams,
   GetPostResponse,
+  GetPreviousPostsParams,
+  GetPreviousPostsResponse,
   GetPublicSettingsResponse,
   ImportPostsBody,
   ImportPostsResponse,
@@ -60,6 +62,7 @@ import {
   desc,
   eq,
   ilike,
+  lt,
   max,
   or,
   sql,
@@ -971,6 +974,47 @@ router.get("/posts/:slug", async (req, res): Promise<void> => {
     return;
   }
   res.json(GetPostResponse.parse(postShape(row)));
+});
+
+router.get("/posts/:slug/previous", async (req, res): Promise<void> => {
+  const params = GetPreviousPostsParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const [current] = await db
+    .select({ id: postsTable.id, publishedAt: postsTable.publishedAt })
+    .from(postsTable)
+    .where(
+      and(
+        eq(postsTable.slug, params.data.slug),
+        eq(postsTable.published, true),
+      ),
+    );
+  if (!current) {
+    res.status(404).json({ error: "Post not found" });
+    return;
+  }
+  const rows = await db
+    .select(postSelection)
+    .from(postsTable)
+    .innerJoin(categoriesTable, eq(postsTable.categoryId, categoriesTable.id))
+    .where(
+      and(
+        eq(postsTable.published, true),
+        or(
+          lt(postsTable.publishedAt, current.publishedAt),
+          and(
+            eq(postsTable.publishedAt, current.publishedAt),
+            lt(postsTable.id, current.id),
+          ),
+        ),
+      ),
+    )
+    .orderBy(desc(postsTable.publishedAt), desc(postsTable.id))
+    .limit(4);
+
+  res.json(GetPreviousPostsResponse.parse(rows.map(postShape)));
 });
 
 router.get("/media/:assetId", async (req, res): Promise<void> => {

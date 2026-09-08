@@ -319,6 +319,83 @@ export function useGetPost<TData = Awaited<ReturnType<typeof getPost>>, TError =
 
 
 
+export const getGetPreviousPostsUrl = (slug: string,) => {
+
+
+
+
+  return `/api/posts/${slug}/previous`
+}
+
+/**
+ * @summary Get up to four posts published before the current post
+ */
+export const getPreviousPosts = async (slug: string, options?: Parameters<typeof customFetch>[1]): Promise<Post[]> => {
+
+  return customFetch<Post[]>(getGetPreviousPostsUrl(slug),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPreviousPostsQueryKey = (slug: string,) => {
+    return [
+    `/api/posts/${slug}/previous`
+    ] as const;
+    }
+
+
+export const getGetPreviousPostsQueryOptions = <TData = Awaited<ReturnType<typeof getPreviousPosts>>, TError = ErrorType<void>>(slug: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPreviousPosts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPreviousPostsQueryKey(slug);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPreviousPosts>>> = ({ signal }) => getPreviousPosts(slug, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: slug !== null && slug !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPreviousPosts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPreviousPostsQueryResult = NonNullable<Awaited<ReturnType<typeof getPreviousPosts>>>
+export type GetPreviousPostsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get up to four posts published before the current post
+ */
+
+export function useGetPreviousPosts<TData = Awaited<ReturnType<typeof getPreviousPosts>>, TError = ErrorType<void>>(
+ slug: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPreviousPosts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPreviousPostsQueryOptions(slug,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getGetMediaAssetUrl = (assetId: string,) => {
 
 

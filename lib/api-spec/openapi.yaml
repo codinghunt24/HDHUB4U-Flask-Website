@@ -86,6 +86,28 @@ paths:
                 $ref: "#/components/schemas/Post"
         "404":
           description: Post not found
+  /posts/{slug}/previous:
+    get:
+      operationId: getPreviousPosts
+      tags: [public]
+      summary: Get up to four posts published before the current post
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Previous published posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Post"
+        "404":
+          description: Post not found
   /media/{assetId}:
     get:
       operationId: getMediaAsset

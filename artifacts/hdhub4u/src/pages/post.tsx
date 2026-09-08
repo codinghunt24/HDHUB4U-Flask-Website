@@ -1,4 +1,9 @@
-import { getGetPostQueryKey, useGetPost } from "@workspace/api-client-react";
+import {
+  getGetPostQueryKey,
+  getGetPreviousPostsQueryKey,
+  useGetPost,
+  useGetPreviousPosts,
+} from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { useEffect, useState } from "react";
 import { PublicLayout } from "@/components/layout/public-layout";
@@ -47,6 +52,12 @@ export default function PostPage() {
   const { slug } = useParams<{ slug: string }>();
   const { data: post, isLoading, isError } = useGetPost(slug || "", {
     query: { enabled: !!slug, queryKey: getGetPostQueryKey(slug || "") }
+  });
+  const { data: previousPosts } = useGetPreviousPosts(slug || "", {
+    query: {
+      enabled: !!slug,
+      queryKey: getGetPreviousPostsQueryKey(slug || ""),
+    },
   });
 
   useEffect(() => {
@@ -299,6 +310,24 @@ export default function PostPage() {
                 ))}
               </div>
             </section>
+          )}
+
+          {previousPosts && previousPosts.length > 0 && (
+            <nav
+              aria-label="Previous posts"
+              className="mb-10 grid grid-cols-2 gap-3 sm:grid-cols-4"
+            >
+              {previousPosts.map((previousPost, index) => (
+                <Link key={previousPost.id} href={`/post/${previousPost.slug}`}>
+                  <Button
+                    variant="outline"
+                    className="h-11 w-full border-zinc-700 bg-zinc-950 text-zinc-200 hover:border-zinc-500 hover:bg-zinc-800 hover:text-white"
+                  >
+                    Previous Post {index + 1}
+                  </Button>
+                </Link>
+              ))}
+            </nav>
           )}
 
           {t && (
