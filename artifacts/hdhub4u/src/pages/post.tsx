@@ -320,8 +320,7 @@ export default function PostPage() {
               {previousPosts.map((previousPost, index) => (
                 <Link key={previousPost.id} href={`/post/${previousPost.slug}`}>
                   <Button
-                    variant="outline"
-                    className="h-11 w-full border-zinc-700 bg-zinc-950 text-zinc-200 hover:border-zinc-500 hover:bg-zinc-800 hover:text-white"
+                    className="h-11 w-full border border-blue-400 bg-blue-600 font-semibold text-white shadow-md shadow-blue-950/40 hover:bg-blue-500 hover:text-white"
                   >
                     {["480p", "720p", "1080p", "4K"][index]}
                   </Button>
