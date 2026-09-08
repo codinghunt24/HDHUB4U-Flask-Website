@@ -36,6 +36,33 @@ const buildMetaDescription = (
   return value.length > 158 ? `${value.slice(0, 155).trimEnd()}…` : value;
 };
 
+const getYouTubeEmbedUrl = (trailerUrl: string | null | undefined) => {
+  if (!trailerUrl) return null;
+
+  try {
+    const url = new URL(trailerUrl);
+    const hostname = url.hostname.replace(/^www\./, "");
+    let videoId: string | null = null;
+
+    if (hostname === "youtu.be") {
+      videoId = url.pathname.split("/").filter(Boolean)[0] ?? null;
+    } else if (hostname === "youtube.com" || hostname === "m.youtube.com") {
+      if (url.pathname === "/watch") {
+        videoId = url.searchParams.get("v");
+      } else {
+        const [route, id] = url.pathname.split("/").filter(Boolean);
+        if (route === "embed" || route === "shorts") videoId = id ?? null;
+      }
+    }
+
+    return videoId && /^[\w-]{11}$/.test(videoId)
+      ? `https://www.youtube-nocookie.com/embed/${videoId}?rel=0`
+      : null;
+  } catch {
+    return null;
+  }
+};
+
 const ImageFallback = ({ src, alt, fallback, className, fit = "cover", width, height }: { src: string | null | undefined, alt: string, fallback?: React.ReactNode, className?: string, fit?: "cover" | "contain", width?: number, height?: number }) => {
   const [error, setError] = useState(false);
   if (!src || error) {
@@ -178,6 +205,7 @@ export default function PostPage() {
   }
 
   const t = post.tmdb;
+  const trailerEmbedUrl = getYouTubeEmbedUrl(t?.trailerUrl);
   const sourceImageUrls = post.sourceImageUrls?.slice(1);
   const language = t?.language;
   const categoryLabels = [post.category.name, ...(t?.genres ?? [])].filter(
@@ -467,9 +495,30 @@ export default function PostPage() {
               <h3 className="text-xs uppercase tracking-widest text-zinc-500 mb-6 font-semibold flex items-center">
                 <PlayCircle className="w-4 h-4 mr-2" /> Official Trailer
               </h3>
-              <a href={t.trailerUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center bg-white text-black px-6 py-3 rounded-full font-medium hover:bg-zinc-200 transition-colors shadow-lg shadow-white/5">
-                Watch on YouTube <ExternalLink className="w-4 h-4 ml-2 opacity-70" />
-              </a>
+              {trailerEmbedUrl ? (
+                <div className="aspect-video w-full overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl">
+                  <iframe
+                    src={trailerEmbedUrl}
+                    title={`${post.title} official trailer`}
+                    className="h-full w-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    loading="lazy"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    data-testid="video-official-trailer"
+                  />
+                </div>
+              ) : (
+                <a
+                  href={t.trailerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 font-medium text-black shadow-lg shadow-white/5 transition-colors hover:bg-zinc-200"
+                  data-testid="link-official-trailer"
+                >
+                  Watch on YouTube <ExternalLink className="ml-2 h-4 w-4 opacity-70" />
+                </a>
+              )}
             </div>
           )}
 
