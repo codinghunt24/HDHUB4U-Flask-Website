@@ -323,7 +323,7 @@ export default function PostPage() {
                     variant="outline"
                     className="h-11 w-full border-zinc-700 bg-zinc-950 text-zinc-200 hover:border-zinc-500 hover:bg-zinc-800 hover:text-white"
                   >
-                    Previous Post {index + 1}
+                    {index === 0 ? "480p" : `Previous Post ${index + 1}`}
                   </Button>
                 </Link>
               ))}
